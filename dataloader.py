@@ -56,14 +56,11 @@ class FacadeDataset(Dataset):
                 label = self.dir.parent / "validation" / "labels" / (self.files[idx] + ".png")
                 hscube = self.dir.parent / "validation" / "reflectance_cubes" / (self.files[idx] + ".npy")
                 rgb = self.dir.parent / "validation" / "rgb" / (self.files[idx] + ".png")
-                depth = self.dir.parent / "validation" / "depth" / (self.files[idx] + ".png")
             else:
-                depth = self.dir / "depth" / (self.files[idx] + ".png")
                 label = self.dir / "labels" / (self.files[idx] + ".png")
                 hscube = self.dir / "reflectance_cubes" / (self.files[idx] + ".npy")
                 rgb = self.dir / "rgb" / (self.files[idx] + ".png")
         else:
-            depth = self.dir / "depth" / (self.files[idx] + ".png")
             label = self.dir / "labels" / (self.files[idx] + ".png")
             hscube = self.dir / "reflectance_cubes" / (self.files[idx] + ".npy")
             rgb = self.dir / "rgb" / (self.files[idx] + ".png")
@@ -73,28 +70,22 @@ class FacadeDataset(Dataset):
         label = np.array(Image.open(label))
         rgb = np.array(Image.open(rgb))
         cube = np.load(hscube)
-        depth = np.array(Image.open(depth))
 
 
         if self.transform:
-            transformed = self.transform(image=rgb, image0=cube, mask=label, depth=depth)
+            transformed = self.transform(image=rgb, cube=cube, mask=label)
             rgb = transformed['image']
-            cube = transformed['image0']
+            cube = transformed['cube']
             label = transformed['mask']
-            depth = transformed['depth']
 
 
         rgb = torch.from_numpy(np.array(rgb)).float() / 255.0
         rgb = rgb.permute(2, 0, 1)
-        
-        depth = torch.from_numpy(depth).float() / 255.0
-        
-        rgbd = torch.cat((rgb, depth.unsqueeze(0)), dim=0)
-        
+                        
         cube = torch.from_numpy(cube).float()
         cube.clamp_(0 + 1e-6, 1 - 1e-6)
         cube = cube.permute(2, 0, 1)
 
         label = torch.from_numpy(label).long()
 
-        return cube, rgbd, label.squeeze()
+        return cube, rgb, label.squeeze()
