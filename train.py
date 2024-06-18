@@ -62,7 +62,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patienc
 metric_val = Metrics()
 
 
-summary(model, input_size=(args.batch_size, 3, 512, 512))
+summary(model, input_size=(args.batch_size, 31, 512, 512))
 
 
 # ---------------

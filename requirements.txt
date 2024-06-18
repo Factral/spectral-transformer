@@ -2,3 +2,6 @@ torch
 torchinfo
 wandb
 tqdm
+matplotlib
+spectral
+scikit-learn
