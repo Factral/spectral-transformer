@@ -38,11 +38,11 @@ if torch.cuda.is_available():
 # dataloaders
 # ---------------
 dataset_train = FacadeDataset(Path(args.datadir) / 'train')
-dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=-1,
+dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=4,
  pin_memory=True)
 
 dataset_test = FacadeDataset(Path(args.datadir) / 'test')
-dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=-1,
+dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=4,
  pin_memory=True)
 
 
