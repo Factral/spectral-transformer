@@ -24,9 +24,9 @@ parser.add_argument('--lr', type=float, help='Learning r    ate', required=True)
 args = parser.parse_args()
 
 
-wandb.login(key='fe0119224af6709c85541483adf824cec731879e')
-wandb.init(project="transformer-material-segmentation", name=args.exp_name)
-wandb.config.update(args)
+# wandb.login(key='fe0119224af6709c85541483adf824cec731879e')
+# wandb.init(project="transformer-material-segmentation", name=args.exp_name)
+# wandb.config.update(args)
 
 
 device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
@@ -38,11 +38,11 @@ if torch.cuda.is_available():
 # dataloaders
 # ---------------
 dataset_train = FacadeDataset(Path(args.datadir) / 'train')
-dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=4,
+dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=0,
  pin_memory=True)
 
 dataset_test = FacadeDataset(Path(args.datadir) / 'test')
-dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=4,
+dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=0,
  pin_memory=True)
 
 
@@ -148,13 +148,13 @@ for epoch in range(args.epochs):
         torch.save(model.state_dict(), 'models/best_model.pth')
 
     #logs
-    wandb.log({
-            'train_loss': epoch_loss,
-            'val_loss': val_loss,
-            'val_fig': fig_val,
-            'epoch': epoch,
-            'pixel_acc_val': pixel_acc, 'macc_val': macc, 'miou_val': miou,
-            'lr': optimizer.param_groups[0]['lr']
-            })
+    # wandb.log({
+    #         'train_loss': epoch_loss,
+    #         'val_loss': val_loss,
+    #         'val_fig': fig_val,
+    #         'epoch': epoch,
+    #         'pixel_acc_val': pixel_acc, 'macc_val': macc, 'miou_val': miou,
+    #         'lr': optimizer.param_groups[0]['lr']
+    #         })
 
     print(f'Epoch {epoch} train loss: {epoch_loss:.4f}, val loss: {val_loss:.4f}')
