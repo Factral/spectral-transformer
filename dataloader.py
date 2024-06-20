@@ -1,7 +1,7 @@
 
 from torch.utils.data import Dataset
 import torch
-from PIL import Image
+import cv2
 import numpy as np
 from pathlib import Path
 
@@ -27,10 +27,10 @@ class FacadeDataset(Dataset):
         self.files = [f.stem for f in (dir / "rgb").glob('*.png')]
         self.transform = aug_transform
 
-        if 'train' in str(self.dir):
-            dir_temp = str(self.dir).replace('train', '')
-            self.validation = [f.stem for f in (Path(dir_temp) / "validation" / "rgb").glob('*.png')]
-            self.files += self.validation
+        # if 'train' in str(self.dir):
+        #     dir_temp = str(self.dir).replace('train', '')
+        #     self.validation = [f.stem for f in (Path(dir_temp) / "validation" / "rgb").glob('*.png')]
+        #     self.files += self.validation
 
         print(f"len of files: {len(self.files)}")
 
@@ -51,25 +51,26 @@ class FacadeDataset(Dataset):
         """
 
         # Determine the paths based on the training/validation split.
-        if 'train' in str(self.dir):
-            if self.files[idx] in self.validation:
-                label = self.dir.parent / "validation" / "labels" / (self.files[idx] + ".png")
-                hscube = self.dir.parent / "validation" / "reflectance_cubes" / (self.files[idx] + ".npy")
-                rgb = self.dir.parent / "validation" / "rgb" / (self.files[idx] + ".png")
-            else:
-                label = self.dir / "labels" / (self.files[idx] + ".png")
-                hscube = self.dir / "reflectance_cubes" / (self.files[idx] + ".npy")
-                rgb = self.dir / "rgb" / (self.files[idx] + ".png")
-        else:
-            label = self.dir / "labels" / (self.files[idx] + ".png")
-            hscube = self.dir / "reflectance_cubes" / (self.files[idx] + ".npy")
-            rgb = self.dir / "rgb" / (self.files[idx] + ".png")
+        # if 'train' in str(self.dir):
+        #     # if self.files[idx] in self.validation:
+        #     #     label = self.dir.parent / "validation" / "labels" / (self.files[idx] + ".png")
+        #     #     hscube = self.dir.parent / "validation" / "reflectance_cubes" / (self.files[idx] + ".npy")
+        #     #     rgb = self.dir.parent / "validation" / "rgb" / (self.files[idx] + ".png")
+        #     # else:
+        #     label = self.dir / "labels" / (self.files[idx] + ".png")
+        #     hscube = self.dir / "reflectance_cubes" / (self.files[idx] + ".npy")
+        #     rgb = self.dir / "rgb" / (self.files[idx] + ".png")
+        # else:
+        
+        label = self.dir / "labels" / (self.files[idx] + ".png")
+        hscube = self.dir / "reflectance_cubes" / (self.files[idx] + ".npy")
+        rgb = self.dir / "rgb" / (self.files[idx] + ".png")
 
 
         # Load data from files.
-        label = np.array(Image.open(label))
-        rgb = np.array(Image.open(rgb))
-        cube = np.load(hscube)
+        label = np.array(cv2.imread(str(label), cv2.IMREAD_UNCHANGED))
+        rgb   = np.array(cv2.imread(str(rgb), cv2.IMREAD_UNCHANGED)[..., ::-1])
+        cube  = np.load(hscube)
 
 
         if self.transform:
