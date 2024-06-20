@@ -51,7 +51,7 @@ class Metrics:
 
         gt = label.cpu().numpy()
         mask = gt != self.ignore_index
-        pred = pred.numpy()
+        pred = pred.cpu().numpy()
 
         # Update confusion matrix with valid entries
         self.confusion_matrix += sklearn_confusion_matrix(

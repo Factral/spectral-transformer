@@ -3,7 +3,8 @@ import torch.nn.functional as F
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
-
+import matplotlib
+import matplotlib.pyplot
 
 def new_fig():
     """Create a new matplotlib figure containing one axis"""
