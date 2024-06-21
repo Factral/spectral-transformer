@@ -1,3 +1,4 @@
 from .unet import Unet
+from .convnext import ConvNext
 
-__all__ = ['Unet']
+__all__ = ['Unet', 'ConvNext']

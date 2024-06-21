@@ -1,4 +1,4 @@
-from models import Unet
+from models import Unet, ConvNext
 from torchinfo import summary
 from dataloader import FacadeDataset
 from pathlib import Path
@@ -39,19 +39,25 @@ if torch.cuda.is_available():
 # ---------------
 dataset_train = FacadeDataset(Path(args.datadir) / 'train')
 dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=0,
- pin_memory=True)
+ pin_memory=True, drop_last=True)
 
 dataset_test = FacadeDataset(Path(args.datadir) / 'test')
 dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=0,
- pin_memory=True)
+ pin_memory=True, drop_last=True)
 
 
 # ---------------
 # model selection
 # ---------------
-if args.model == 'unet':
-    model = Unet(31, 44)
+n_channels = 31
+n_classes  = 44
 
+if args.model == 'unet':
+    model = Unet(n_channels, n_classes)
+if args.model == 'convnext':
+    model = ConvNext(n_channels, n_classes)
+
+model = model.to(device)
 
 # ---------------
 # training params
@@ -62,7 +68,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patienc
 metric_val = Metrics()
 
 
-summary(model, input_size=(args.batch_size, 31, 512, 512))
+# summary(model, input_size=(args.batch_size, 31, 512, 512))
 
 
 # ---------------
@@ -158,3 +164,4 @@ for epoch in range(args.epochs):
     #         })
 
     print(f'Epoch {epoch} train loss: {epoch_loss:.4f}, val loss: {val_loss:.4f}')
+    print(f'Pixel Acc: {pixel_acc:.4f}, mAcc: {macc:.4f}, mIoU: {miou:.4f}')
