@@ -14,7 +14,7 @@ prepare dataset:
 ```bash
 python3 prepare_dataset.py --dir /path/to/extracted/dataset --split train
 python3 prepare_dataset.py --dir /path/to/extracted/dataset --split test
-python3 prepare_dataset.py --dir /path/to/extracted/dataset --split val
+python3 prepare_dataset.py --dir /path/to/extracted/dataset --split validation
 ```
 
 train:
