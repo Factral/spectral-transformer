@@ -1,2 +1,1 @@
-python train.py --exp_name "test" --model "unet" --datadir "LIB-HSI" \
- --gpu 0 --epochs 2 --batch_size 4 --lr 3e-3
+python train.py --exp_name "test" --model "convnext" --datadir "LIB-HSI" --gpu 0 --epochs 100 --batch_size 8 --lr 5e-4
