@@ -21,12 +21,14 @@ parser.add_argument('--gpu', type=int, help='GPU number', required=True)
 parser.add_argument('--epochs', type=int, help='Number of epochs', required=True)
 parser.add_argument('--batch_size', type=int, help='Batch size', required=True)
 parser.add_argument('--lr', type=float, help='Learning r    ate', required=True)
+parser.add_argument('--wandb', default=False, action=argparse.BooleanOptionalAction, help='Use wandb')
 args = parser.parse_args()
 
 
-# wandb.login(key='fe0119224af6709c85541483adf824cec731879e')
-# wandb.init(project="transformer-material-segmentation", name=args.exp_name)
-# wandb.config.update(args)
+if args.wandb:
+    wandb.login(key='fe0119224af6709c85541483adf824cec731879e')
+    wandb.init(project="transformer-material-segmentation", name=args.exp_name)
+    wandb.config.update(args)
 
 
 device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
@@ -155,15 +157,15 @@ for epoch in range(args.epochs):
         best_val_miou = miou
         torch.save(model.state_dict(), 'models/best_model.pth')
 
-    #logs
-    # wandb.log({
-    #         'train_loss': epoch_loss,
-    #         'val_loss': val_loss,
-    #         'val_fig': fig_val,
-    #         'epoch': epoch,
-    #         'pixel_acc_val': pixel_acc, 'macc_val': macc, 'miou_val': miou,
-    #         'lr': optimizer.param_groups[0]['lr']
-    #         })
+    if args.wandb:
+        wandb.log({
+                'train_loss': epoch_loss,
+                'val_loss': val_loss,
+                'val_fig': fig_val,
+                'epoch': epoch,
+                'pixel_acc_val': pixel_acc, 'macc_val': macc, 'miou_val': miou,
+                'lr': optimizer.param_groups[0]['lr']
+                })
 
     print(f'Epoch {epoch} train loss: {epoch_loss:.4f}, val loss: {val_loss:.4f}')
     print(f'Pixel Acc: {pixel_acc:.4f}, mAcc: {macc:.4f}, mIoU: {miou:.4f}')
