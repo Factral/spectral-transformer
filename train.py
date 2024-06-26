@@ -41,11 +41,11 @@ if torch.cuda.is_available():
 # ---------------
 # dataloaders
 # ---------------
-dataset_train = FacadeDataset(Path(args.datadir) / 'train', repeat_rgb=args.repeatrgb)
+dataset_train = FacadeDataset(Path(args.datadir) / 'train', repeatrgb=args.repeatrgb)
 dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=0,
  pin_memory=True, drop_last=True)
 
-dataset_test = FacadeDataset(Path(args.datadir) / 'test', repeat_rgb=args.repeatrgb)
+dataset_test = FacadeDataset(Path(args.datadir) / 'test', repeatrgb=args.repeatrgb)
 dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=0,
  pin_memory=True, drop_last=True)
 
@@ -168,7 +168,8 @@ for epoch in range(args.epochs):
     #save checkpoint
     if best_val_miou > miou:
         best_val_miou = miou
-        torch.save(model.state_dict(), 'models/best_model.pth')
+        torch.save(model.state_dict(), f'checkpoints/{args.exp_name}_best_model.pth')
+        print('Model outperformed previous best. Saving model... ')
 
     if args.wandb:
         wandb.log({
