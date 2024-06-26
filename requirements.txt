@@ -5,3 +5,5 @@ tqdm==4.66.4
 spectral==0.23.1
 matplotlib==3.9.0
 scikit-learn==1.5.0
+transformers
+opencv-python

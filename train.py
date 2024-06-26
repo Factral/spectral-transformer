@@ -22,6 +22,7 @@ parser.add_argument('--epochs', type=int, help='Number of epochs', required=True
 parser.add_argument('--batch_size', type=int, help='Batch size', required=True)
 parser.add_argument('--lr', type=float, help='Learning r    ate', required=True)
 parser.add_argument('--wandb', default=False, action=argparse.BooleanOptionalAction, help='Use wandb')
+parser.add_argument('--usergb', default=False, action=argparse.BooleanOptionalAction, help='Use rgb as input')
 args = parser.parse_args()
 
 
@@ -51,7 +52,10 @@ dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=F
 # ---------------
 # model selection
 # ---------------
-n_channels = 31
+if args.usergb:
+    n_channels = 3
+else:
+    n_channels = 31
 n_classes  = 44
 
 if args.model == 'unet':
@@ -91,7 +95,12 @@ def train(model, data_loader, optimizer, lossfunc):
         optimizer.zero_grad()
         
         with torch.cuda.amp.autocast(dtype=torch.float16):
-            outputs = model(cubes)
+
+            if args.usergb:
+                outputs = model(rgbs)
+            else:
+                outputs = model(cubes)
+            
             loss = lossfunc(outputs, labels.long())
 
         scaler.scale(loss).backward()
@@ -119,7 +128,10 @@ def validate(model, data_loader, lossfunc):
             cubes = cubes.to(device)
 
             with torch.cuda.amp.autocast(dtype=torch.float16):
-                outputs = model(cubes)
+                if args.usergb:
+                    outputs = model(rgbs)
+                else:
+                    outputs = model(cubes)
                 
                 loss = lossfunc(outputs, labels.long())
 
@@ -169,3 +181,6 @@ for epoch in range(args.epochs):
 
     print(f'Epoch {epoch} train loss: {epoch_loss:.4f}, val loss: {val_loss:.4f}')
     print(f'Pixel Acc: {pixel_acc:.4f}, mAcc: {macc:.4f}, mIoU: {miou:.4f}')
+
+if args.wandb:
+    wandb.finish()
