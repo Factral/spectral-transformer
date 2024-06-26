@@ -23,6 +23,7 @@ parser.add_argument('--batch_size', type=int, help='Batch size', required=True)
 parser.add_argument('--lr', type=float, help='Learning r    ate', required=True)
 parser.add_argument('--wandb', default=False, action=argparse.BooleanOptionalAction, help='Use wandb')
 parser.add_argument('--usergb', default=False, action=argparse.BooleanOptionalAction, help='Use rgb as input')
+parser.add_argument('--repeatrgb', default=False, action=argparse.BooleanOptionalAction, help='Repeat rgb as input')
 args = parser.parse_args()
 
 
@@ -40,11 +41,11 @@ if torch.cuda.is_available():
 # ---------------
 # dataloaders
 # ---------------
-dataset_train = FacadeDataset(Path(args.datadir) / 'train')
+dataset_train = FacadeDataset(Path(args.datadir) / 'train', repeat_rgb=args.repeatrgb)
 dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=0,
  pin_memory=True, drop_last=True)
 
-dataset_test = FacadeDataset(Path(args.datadir) / 'test')
+dataset_test = FacadeDataset(Path(args.datadir) / 'test', repeat_rgb=args.repeatrgb)
 dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=0,
  pin_memory=True, drop_last=True)
 

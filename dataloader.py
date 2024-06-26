@@ -16,7 +16,7 @@ class FacadeDataset(Dataset):
     """
 
 
-    def __init__(self, dir, aug_transform=None):
+    def __init__(self, dir, aug_transform=None, **kwargs):
         """Initialize the dataset with the directory path and optional transform.
 
         Args:
@@ -31,6 +31,9 @@ class FacadeDataset(Dataset):
         #     dir_temp = str(self.dir).replace('train', '')
         #     self.validation = [f.stem for f in (Path(dir_temp) / "validation" / "rgb").glob('*.png')]
         #     self.files += self.validation
+
+        #kwargs
+        self.kwargs = kwargs
 
         print(f"len of files: {len(self.files)}")
 
@@ -88,5 +91,9 @@ class FacadeDataset(Dataset):
         cube = cube.permute(2, 0, 1)
 
         label = torch.from_numpy(label).long()
+
+        if "repeatrgb" in self.kwargs and self.kwargs["repeatrgb"]:
+            rgb = rgb.repeat(10,1,1)
+            rgb = torch.cat((rgb, rgb[0,:,:].unsqueeze(0)))
 
         return cube, rgb, label.squeeze()
