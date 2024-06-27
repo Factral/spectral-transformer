@@ -18,4 +18,15 @@ class FCN(torch.nn.Module):
     
     
     def load_weights(self, path):
-        self.model.load_state_dict(torch.load(path))
+        """Load model weights from a file.
+
+        Args:
+        ----------------
+            path (str): Path to the file containing the weights.
+        """
+        from collections import OrderedDict
+        state_dict = torch.load(path)
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            new_state_dict[k.replace("model.", "")] = v
+        self.model.load_state_dict(new_state_dict)
