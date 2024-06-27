@@ -24,6 +24,7 @@ parser.add_argument('--lr', type=float, help='Learning r    ate', required=True)
 parser.add_argument('--wandb', default=False, action=argparse.BooleanOptionalAction, help='Use wandb')
 parser.add_argument('--usergb', default=False, action=argparse.BooleanOptionalAction, help='Use rgb as input')
 parser.add_argument('--repeatrgb', default=False, action=argparse.BooleanOptionalAction, help='Repeat rgb as input')
+parser.add_argument('--weights', type=str, help='Path to model weights', required=False)
 args = parser.parse_args()
 
 
@@ -66,7 +67,11 @@ if args.model == 'convnext':
 if args.model == 'fcn':
     model = FCN(n_channels, n_classes)
 
+
 model = model.to(device)
+
+if args.weights:
+    model.load_weights(args.weights)
 
 # ---------------
 # training params
@@ -166,7 +171,7 @@ for epoch in range(args.epochs):
     val_loss, fig_val, pixel_acc, macc, miou = validate(model, dataloader_test, criterion)
 
     #save checkpoint
-    if best_val_miou > miou:
+    if miou > best_val_miou:
         best_val_miou = miou
         torch.save(model.state_dict(), f'checkpoints/{args.exp_name}_best_model.pth')
         print('Model outperformed previous best. Saving model... ')

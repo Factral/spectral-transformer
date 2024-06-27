@@ -15,4 +15,7 @@ class FCN(torch.nn.Module):
 
     def forward(self, x):
         return self.model(x)['out']
-
+    
+    
+    def load_weights(self, path):
+        self.model.load_state_dict(torch.load(path))
