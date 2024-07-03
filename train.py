@@ -25,12 +25,13 @@ parser.add_argument('--wandb', default=False, action=argparse.BooleanOptionalAct
 parser.add_argument('--usergb', default=False, action=argparse.BooleanOptionalAction, help='Use rgb as input')
 parser.add_argument('--repeatrgb', default=False, action=argparse.BooleanOptionalAction, help='Repeat rgb as input')
 parser.add_argument('--weights', type=str, help='Path to model weights', required=False)
+parser.add_argument('--group', type=str, help='Group to use', default=None, required=False)
 args = parser.parse_args()
 
 
 if args.wandb:
     wandb.login(key='fe0119224af6709c85541483adf824cec731879e')
-    wandb.init(project="transformer-material-segmentation", name=args.exp_name)
+    wandb.init(project="transformer-material-segmentation", name=args.exp_name, group=args.group)
     wandb.config.update(args)
 
 
@@ -43,11 +44,11 @@ if torch.cuda.is_available():
 # dataloaders
 # ---------------
 dataset_train = FacadeDataset(Path(args.datadir) / 'train', repeatrgb=args.repeatrgb)
-dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=0,
+dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=8,
  pin_memory=True, drop_last=True)
 
 dataset_test = FacadeDataset(Path(args.datadir) / 'test', repeatrgb=args.repeatrgb)
-dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=0,
+dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=8,
  pin_memory=True, drop_last=True)
 
 
@@ -80,6 +81,7 @@ criterion = torch.nn.CrossEntropyLoss().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=15, factor=0.5, verbose=True,  min_lr=1e-5)
 metric_val = Metrics()
+metric_train = Metrics()
 
 
 # summary(model, input_size=(args.batch_size, 31, 512, 512))
@@ -115,9 +117,16 @@ def train(model, data_loader, optimizer, lossfunc):
 
         running_loss.append(loss.item())
 
+        pred = nn.functional.softmax(outputs, dim=1)
+        metric_train.update(pred.argmax(1), labels.long())
+
+
+    pixel_acc, macc, miou = metric_train.compute()
+    metric_train.reset()
+
     epoch_loss = sum(running_loss) / len(data_loader.dataset)
 
-    return epoch_loss
+    return epoch_loss, pixel_acc, macc, miou
 
 
 # ---------------
@@ -165,7 +174,7 @@ for epoch in range(args.epochs):
     print(f'Epoch {epoch + 1}\n-------------------------------')
 
     #train one epoch
-    epoch_loss  = train(model, dataloader_train, optimizer, criterion)
+    epoch_loss, train_pixel_acc, train_macc, train_miou  = train(model, dataloader_train, optimizer, criterion)
 
     #validate
     val_loss, fig_val, pixel_acc, macc, miou = validate(model, dataloader_test, criterion)
@@ -182,12 +191,14 @@ for epoch in range(args.epochs):
                 'val_loss': val_loss,
                 'val_fig': fig_val,
                 'epoch': epoch,
-                'pixel_acc_val': pixel_acc, 'macc_val': macc, 'miou_val': miou,
+                'pixel_acc_val': pixel_acc, 'test_macc_val': macc, 'miou_val': miou,
+                'pixel_acc_train': train_pixel_acc, 'macc_train': train_macc, 'miou_train': train_miou,
                 'lr': optimizer.param_groups[0]['lr']
                 })
 
     print(f'Epoch {epoch} train loss: {epoch_loss:.4f}, val loss: {val_loss:.4f}')
     print(f'Pixel Acc: {pixel_acc:.4f}, mAcc: {macc:.4f}, mIoU: {miou:.4f}')
+
 
 if args.wandb:
     wandb.finish()

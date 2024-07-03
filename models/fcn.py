@@ -11,7 +11,8 @@ class FCN(torch.nn.Module):
         super(FCN, self).__init__()
 
         self.model                = torchvision.models.segmentation.fcn_resnet50(num_classes=num_classes)
-        self.model.backbone.conv1 = torch.nn.Conv2d(n_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        self.model.backbone.conv1 = torch.nn.Conv2d(n_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3))
+
 
     def forward(self, x):
         return self.model(x)['out']

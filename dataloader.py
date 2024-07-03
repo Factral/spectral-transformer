@@ -92,7 +92,7 @@ class FacadeDataset(Dataset):
 
         label = torch.from_numpy(label).long()
 
-        if "repeatrgb" in self.kwargs and self.kwargs["repeatrgb"]:
+        if self.kwargs["repeatrgb"]:
             cube = rgb.repeat(10,1,1)
             cube = torch.cat((cube, cube[0,:,:].unsqueeze(0)))
         
