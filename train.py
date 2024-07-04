@@ -49,7 +49,7 @@ dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle
 
 dataset_test = FacadeDataset(Path(args.datadir) / 'test', repeatrgb=args.repeatrgb)
 dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=8,
- pin_memory=True, drop_last=True)
+ pin_memory=True)
 
 
 # ---------------
