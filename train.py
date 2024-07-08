@@ -24,6 +24,12 @@ parser.add_argument('--lr', type=float, help='Learning r    ate', required=True)
 parser.add_argument('--wandb', default=False, action=argparse.BooleanOptionalAction, help='Use wandb')
 parser.add_argument('--usergb', default=False, action=argparse.BooleanOptionalAction, help='Use rgb as input')
 parser.add_argument('--repeatrgb', default=False, action=argparse.BooleanOptionalAction, help='Repeat rgb as input')
+
+# reconstruct cube arguments
+parser.add_argument('--reconstruct', default=False, action=argparse.BooleanOptionalAction, help='Reconstruct cube')
+parser.add_argument('--regularize', default=False, action=argparse.BooleanOptionalAction, help='Regularize cube')
+
+
 parser.add_argument('--weights', type=str, help='Path to model weights', required=False)
 parser.add_argument('--group', type=str, help='Group to use', default=None, required=False)
 args = parser.parse_args()
@@ -56,10 +62,14 @@ dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size, shuffle=F
 # model selection
 # ---------------
 if args.usergb:
-    n_channels = 3
+    if args.reconstruct:
+        n_channels = 31
+    else:
+        n_channels = 3
 else:
     n_channels = 31
 n_classes  = 44
+
 
 if args.model == 'unet':
     model = Unet(n_channels, n_classes)
@@ -69,16 +79,29 @@ if args.model == 'fcn':
     model = FCN(n_channels, n_classes)
 
 
+if args.reconstruct:
+    model_reconstruct = Unet(3, 31)
+    model_reconstruct = model_reconstruct.to(device)
+
 model = model.to(device)
 
 if args.weights:
     model.load_weights(args.weights)
 
+
 # ---------------
 # training params
 # ---------------
 criterion = torch.nn.CrossEntropyLoss().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+if args.reconstruct:
+    criterion_reconstruct = torch.nn.MSELoss().to(device)
+
+
+if not args.reconstruct:
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+else:
+    optimizer = torch.optim.Adam(list(model.parameters()) + list(model_reconstruct.parameters()), lr=args.lr)
+
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=15, factor=0.5, verbose=True,  min_lr=1e-5)
 metric_val = Metrics()
 metric_train = Metrics()
@@ -105,11 +128,18 @@ def train(model, data_loader, optimizer, lossfunc):
         with torch.cuda.amp.autocast(dtype=torch.float16):
 
             if args.usergb:
-                outputs = model(rgbs)
+                if args.reconstruct:
+                    cubes_reconstructed = model_reconstruct(rgbs)
+                    outputs = model(cubes_reconstructed)
+                else:
+                    outputs = model(rgbs)
             else:
                 outputs = model(cubes)
-            
-            loss = lossfunc(outputs, labels.long())
+
+            if args.reconstruct and args.regularize:
+                loss = lossfunc(outputs, labels.long()) + criterion_reconstruct(cubes_reconstructed, cubes)
+            else:
+                loss = lossfunc(outputs, labels.long())
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
@@ -144,11 +174,18 @@ def validate(model, data_loader, lossfunc):
 
             with torch.cuda.amp.autocast(dtype=torch.float16):
                 if args.usergb:
-                    outputs = model(rgbs)
+                    if args.reconstruct:
+                        cubes_reconstructed = model_reconstruct(rgbs)
+                        outputs = model(cubes_reconstructed)
+                    else:
+                        outputs = model(rgbs)
                 else:
                     outputs = model(cubes)
-                
-                loss = lossfunc(outputs, labels.long())
+
+                if args.reconstruct and args.regularize:
+                    loss = lossfunc(outputs, labels.long()) + criterion_reconstruct(cubes_reconstructed, cubes)
+                else:
+                    loss = lossfunc(outputs, labels.long())
 
             running_loss.append(loss.item())
 
