@@ -107,7 +107,10 @@ metric_val = Metrics()
 metric_train = Metrics()
 
 
-# summary(model, input_size=(args.batch_size, 31, 512, 512))
+summary(model, input_size=(args.batch_size, n_channels, 512, 512))
+if args.reconstruct:
+    print('\nReconstruct model\n')
+    summary(model_reconstruct, input_size=(args.batch_size, 3, 512, 512))
 
 
 # ---------------
@@ -137,7 +140,10 @@ def train(model, data_loader, optimizer, lossfunc):
                 outputs = model(cubes)
 
             if args.reconstruct and args.regularize:
-                loss = lossfunc(outputs, labels.long()) + criterion_reconstruct(cubes_reconstructed, cubes)
+                loss_seg = lossfunc(outputs, labels.long())
+                loss_rec = criterion_reconstruct(cubes_reconstructed, cubes)
+                wandb.log({'loss_seg_train': loss_seg, 'loss_rec_train': loss_rec})
+                loss = loss_seg + loss_rec
             else:
                 loss = lossfunc(outputs, labels.long())
 
@@ -183,7 +189,9 @@ def validate(model, data_loader, lossfunc):
                     outputs = model(cubes)
 
                 if args.reconstruct and args.regularize:
-                    loss = lossfunc(outputs, labels.long()) + criterion_reconstruct(cubes_reconstructed, cubes)
+                    loss_seg = lossfunc(outputs, labels.long())
+                    loss_rec = criterion_reconstruct(cubes_reconstructed, cubes)
+                    wandb.log({'loss_seg_val': loss_seg, 'loss_rec_val': loss_rec})
                 else:
                     loss = lossfunc(outputs, labels.long())
 
