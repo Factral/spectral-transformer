@@ -1,4 +1,4 @@
-from models import Unet, ConvNext, FCN
+from models import Unet, ConvNext, FCN, unetsmp
 from torchinfo import summary
 from dataloader import FacadeDataset
 from pathlib import Path
@@ -162,6 +162,8 @@ def main(args):
         model = ConvNext(n_channels, n_classes)
     if args.model == 'fcn':
         model = FCN(n_channels, n_classes)
+    if args.model == 'unetsmp':
+        model = unetsmp(n_channels, n_classes)
 
 
     if args.reconstruct:

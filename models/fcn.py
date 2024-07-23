@@ -6,7 +6,7 @@ import torch
 import torchvision
 
 class FCN(torch.nn.Module):
-
+    # 30 millions of parameters
     def __init__(self, n_channels, num_classes):
         super(FCN, self).__init__()
         weights = torchvision.models.segmentation.FCN_ResNet50_Weights.COCO_WITH_VOC_LABELS_V1
