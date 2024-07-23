@@ -4,6 +4,7 @@ import torch
 import cv2
 import numpy as np
 from pathlib import Path
+import torchvision
 
 class FacadeDataset(Dataset):
     """Dataset for loading facade images and associated data for segmentation.
@@ -70,11 +71,10 @@ class FacadeDataset(Dataset):
         rgb = self.dir / "rgb" / (self.files[idx] + ".png")
 
 
-        # Load data from files.
-        label = np.array(cv2.imread(str(label), cv2.IMREAD_UNCHANGED))
-        rgb   = np.array(cv2.imread(str(rgb), cv2.IMREAD_UNCHANGED)[..., ::-1])
+        # Load data from files
+        label = torchvision.io.read_image(str(label))
+        rgb   = torchvision.io.read_image(str(rgb))
         cube  = np.load(hscube)
-
 
         if self.transform:
             transformed = self.transform(image=rgb, cube=cube, mask=label)
@@ -83,17 +83,16 @@ class FacadeDataset(Dataset):
             label = transformed['mask']
 
 
-        rgb = torch.from_numpy(np.array(rgb)).float() / 255.0
-        rgb = rgb.permute(2, 0, 1)
-                        
         cube = torch.from_numpy(cube).float()
         cube.clamp_(0 + 1e-6, 1 - 1e-6)
         cube = cube.permute(2, 0, 1)
 
-        label = torch.from_numpy(label).long()
+        label = label.squeeze().long()
+        rgb = rgb.float() / 255.0
+                        
 
         if self.kwargs["repeatrgb"]:
             cube = rgb.repeat(10,1,1)
             cube = torch.cat((cube, cube[0,:,:].unsqueeze(0)))
         
-        return cube, rgb, label.squeeze()
+        return cube, rgb, label
