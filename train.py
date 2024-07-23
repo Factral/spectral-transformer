@@ -233,7 +233,7 @@ def main(args):
         print(f'Epoch {epoch} train loss: {epoch_loss:.4f}, val loss: {val_loss:.4f}')
         print(f'Pixel Acc: {pixel_acc:.4f}, mAcc: {macc:.4f}, mIoU: {miou:.4f}')
 
-
+    print("finished training")
     if args.wandb:
         wandb.finish()
 
