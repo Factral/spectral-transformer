@@ -115,8 +115,6 @@ def validate(model, data_loader, lossfunc):
     return val_loss, fig, pixel_acc, macc, miou
 
 
-
-
 def main(args):
     global device, scaler, model_reconstruct, criterion_reconstruct, metric_val, metric_train, scheduler
 
@@ -127,6 +125,7 @@ def main(args):
 
 
     device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
+    
     if torch.cuda.is_available():
         scaler = torch.cuda.amp.GradScaler()
 
