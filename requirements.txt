@@ -1,10 +1,4 @@
-numpy==1.26.0
-torchinfo==1.8.0
-wandb==0.17.2
-tqdm==4.66.4
-spectral==0.23.1
-matplotlib==3.9.0
-scikit-learn==1.5.0
-transformers
-opencv-python
-segmentation-models-pytorch
+-r requirements/optional.txt
+-r requirements/runtime.txt
+-r requirements/tests.txt
+-r requirements/multimodal.txt

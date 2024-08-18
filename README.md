@@ -1,23 +1,29 @@
-# spectral-transformer
-
-dataset:
-https://data.csiro.au/collection/csiro%3A55630v4
-
-install requirements:
+# explore mm-seg
 
 ```bash
-pip3 install -r requirements.txt
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+ pip install numpy==1.25.1
+ ```
+
+```bash
+pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
 ```
 
-prepare dataset:
 ```bash
-python3 prepare_dataset.py --dir /path/to/extracted/dataset --split train
-python3 prepare_dataset.py --dir /path/to/extracted/dataset --split test
-python3 prepare_dataset.py --dir /path/to/extracted/dataset --split validation
+pip install mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.1/index.html 
 ```
 
-train:
+ ```bash
+ pip install wandb
+ pip install ftfy
+ pip install regex
+ ```
+
+
+ ```bash
+ pip install -e .
+ ```
+
+
 ```bash
-sh train.sh
+ source ~/.bashrc
 ```

@@ -7,7 +7,6 @@ from tqdm import tqdm
 from spectral import open_image
 from constants import BANDS
 
-
 def process_mask(rgb_mask, colormap):
     """Convert RGB mask to a one-hot encoded mask based on a colormap."""
     output_mask = np.zeros((*rgb_mask.shape[:2], len(colormap)), dtype=bool)
@@ -16,7 +15,6 @@ def process_mask(rgb_mask, colormap):
         output_mask[:, :, i] = np.all(rgb_mask == color, axis=-1)
     
     return output_mask
-
 
 def inverse_process_mask(mask, colormap):
     """Convert a one-hot encoded mask back to RGB using a colormap."""
@@ -50,7 +48,7 @@ def main(args):
 
             Image.fromarray(mask.astype(np.uint8)).save(data_dir / args.split / "labels" / f"{file}.png")
 
-        if not (data_dir / args.split / "reflectance_cubes" / f"{file}.npy").exists():
+        if not (data_dir / args.split / "reflectance_cubes" / f"{file}.npy").exists() and args.spectral:
             cube = open_image(data_dir / args.split / "reflectance_cubes" / f"{file}.hdr").load()
             cube = np.rot90(cube, 3)
 
@@ -89,11 +87,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Prepare hyprspectral cubes for training.')
     parser.add_argument('--dir', type=str, help='Path to the dataset', required=True)
     parser.add_argument('--split', type=str, help='train, test or val', required=True)
+    parser.add_argument('--spectral', default=False, action=argparse.BooleanOptionalAction, help='process spectral or not')
 
     args = parser.parse_args()
 
     main(args)
-
 
 
 
