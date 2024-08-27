@@ -20,7 +20,7 @@ train_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         type='HSIFacade',
-        data_root='data/LIB-HSI',
+        data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
         data_prefix=dict(
             img_path='train/rgb', seg_map_path='train/labels'),
         pipeline=train_pipeline))
@@ -33,7 +33,7 @@ val_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
         type='HSIFacade',
-        data_root='data/LIB-HSI',
+        data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
         data_prefix=dict(
             img_path='validation/rgb',
             seg_map_path='validation/labels'),
@@ -47,7 +47,7 @@ test_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
         type='HSIFacade',
-        data_root='data/LIB-HSI',
+        data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
         data_prefix=dict(
             img_path='test/rgb',
             seg_map_path='test/labels'),
