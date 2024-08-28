@@ -239,6 +239,8 @@ class BaseSegDataset(BaseDataset):
         data_list = []
         img_dir = self.data_prefix.get('img_path', None)
         ann_dir = self.data_prefix.get('seg_map_path', None)
+        spectral_dir = self.data_prefix.get('spectral_path', None)
+        
         if not osp.isdir(self.ann_file) and self.ann_file:
             assert osp.isfile(self.ann_file), \
                 f'Failed to load `ann_file` {self.ann_file}'
@@ -254,6 +256,11 @@ class BaseSegDataset(BaseDataset):
                 data_info['label_map'] = self.label_map
                 data_info['reduce_zero_label'] = self.reduce_zero_label
                 data_info['seg_fields'] = []
+
+                if self.multimodal:
+                    spectral_map = img[:-_suffix_len] + self.spectral_map_suffix
+                    data_info['spectral_path'] = osp.join(spectral_dir, spectral_map)
+
                 data_list.append(data_info)
         else:
             _suffix_len = len(self.img_suffix)
@@ -270,6 +277,11 @@ class BaseSegDataset(BaseDataset):
                 data_info['label_map'] = self.label_map
                 data_info['reduce_zero_label'] = self.reduce_zero_label
                 data_info['seg_fields'] = []
+
+                if self.multimodal:
+                    spectral_map = img[:-_suffix_len] + self.spectral_map_suffix
+                    data_info['spectral_path'] = osp.join(spectral_dir, spectral_map)
+
                 data_list.append(data_info)
             data_list = sorted(data_list, key=lambda x: x['img_path'])
         return data_list
@@ -563,7 +575,5 @@ class BaseCDDataset(BaseDataset):
 
                 data_list.append(data_info)
             data_list = sorted(data_list, key=lambda x: x['img_path'])
-
-        print(self.multimodal)
 
         return data_list

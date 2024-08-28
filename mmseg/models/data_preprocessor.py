@@ -110,6 +110,9 @@ class SegDataPreProcessor(BaseDataPreprocessor):
         inputs = data['inputs']
         data_samples = data.get('data_samples', None)
         # TODO: whether normalize should be after stack_batch
+
+        print(inputs.keys())
+
         if self.channel_conversion and inputs[0].size(0) == 3:
             inputs = [_input[[2, 1, 0], ...] for _input in inputs]
 

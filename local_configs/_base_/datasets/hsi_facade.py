@@ -24,7 +24,9 @@ train_dataloader = dict(
         type='HSIFacade',
         data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
         data_prefix=dict(
-            img_path='train/rgb', seg_map_path='train/labels'),
+            img_path='train/rgb',
+            seg_map_path='train/labels',
+            spectral_path='train/reflectance_cubes'),
         pipeline=train_pipeline))
 
 
@@ -38,7 +40,8 @@ val_dataloader = dict(
         data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
         data_prefix=dict(
             img_path='validation/rgb',
-            seg_map_path='validation/labels'),
+            seg_map_path='validation/labels',
+            spectral_path='train/reflectance_cubes'),
         pipeline=test_pipeline))
 
 
@@ -52,7 +55,8 @@ test_dataloader = dict(
         data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
         data_prefix=dict(
             img_path='test/rgb',
-            seg_map_path='test/labels'),
+            seg_map_path='test/labels',
+            spectral_path='train/reflectance_cubes'),
         pipeline=test_pipeline))
 
 
