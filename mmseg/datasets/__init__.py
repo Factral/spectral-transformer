@@ -39,7 +39,7 @@ from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
                          PhotoMetricDistortion, RandomCrop, RandomCutOut,
                          RandomMosaic, RandomRotate, RandomRotFlip, Rerange,
                          ResizeShortestEdge, ResizeToMultiple, RGB2Gray,
-                         SegRescale)
+                         SegRescale, LoadSpectralImageFromNpyFile)
 from .voc import PascalVOCDataset
 
 
@@ -63,5 +63,5 @@ __all__ = [
     'MapillaryDataset_v2', 'Albu', 'LEVIRCDDataset',
     'LoadMultipleRSImageFromFile', 'LoadSingleRSImageFromFile',
     'ConcatCDInput', 'BaseCDDataset', 'DSDLSegDataset', 'BDD100KDataset',
-    'NYUDataset', 'HSIDrive20Dataset',  'HSIFacade'
+    'NYUDataset', 'HSIDrive20Dataset',  'HSIFacade', 'LoadSpectralImageFromNpyFile'
 ]

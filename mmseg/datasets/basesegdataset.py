@@ -96,13 +96,17 @@ class BaseSegDataset(BaseDataset):
                  max_refetch: int = 1000,
                  ignore_index: int = 255,
                  reduce_zero_label: bool = False,
-                 backend_args: Optional[dict] = None) -> None:
+                 backend_args: Optional[dict] = None,
+                 multimodal:bool = False,
+                 spectral_map_suffix='.npy') -> None:
 
         self.img_suffix = img_suffix
         self.seg_map_suffix = seg_map_suffix
         self.ignore_index = ignore_index
         self.reduce_zero_label = reduce_zero_label
         self.backend_args = backend_args.copy() if backend_args else None
+        self.multimodal = multimodal
+        self.spectral_map_suffix = spectral_map_suffix
 
         self.data_root = data_root
         self.data_prefix = copy.copy(data_prefix)
@@ -526,6 +530,11 @@ class BaseCDDataset(BaseDataset):
                 data_info['label_map'] = self.label_map
                 data_info['reduce_zero_label'] = self.reduce_zero_label
                 data_info['seg_fields'] = []
+                
+                if self.multimodal:
+                    spectral_map = img + self.spectral_map_suffix
+                    data_info['spectral_path'] = osp.join(ann_dir, spectral_map)
+
                 data_list.append(data_info)
         else:
             for img in fileio.list_dir_or_file(
@@ -547,6 +556,12 @@ class BaseCDDataset(BaseDataset):
                 data_info['label_map'] = self.label_map
                 data_info['reduce_zero_label'] = self.reduce_zero_label
                 data_info['seg_fields'] = []
+
+                if self.multimodal:
+                    spectral_map = img + self.spectral_map_suffix
+                    data_info['spectral_path'] = osp.join(ann_dir, spectral_map)
+
                 data_list.append(data_info)
             data_list = sorted(data_list, key=lambda x: x['img_path'])
+
         return data_list
