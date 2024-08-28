@@ -564,4 +564,6 @@ class BaseCDDataset(BaseDataset):
                 data_list.append(data_info)
             data_list = sorted(data_list, key=lambda x: x['img_path'])
 
+        print(self.multimodal)
+
         return data_list

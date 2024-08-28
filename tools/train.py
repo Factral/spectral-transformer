@@ -53,15 +53,16 @@ def merge_args_to_config(cfg, args):
     set_random_seed(0, deterministic=False)
 
     # support wandb
-    cfg.visualizer.vis_backends.append(dict(
-        type='WandbVisBackend',
-        init_kwargs=dict(
-            project='transformer-material-segmentation',
-            name=f'{exp_name}',
-            group=args.model_name)
-        )
-        )
-    
+    if args.wandb:
+        cfg.visualizer.vis_backends.append(dict(
+            type='WandbVisBackend',
+            init_kwargs=dict(
+                project='transformer-material-segmentation',
+                name=f'{exp_name}',
+                group=args.model_name)
+            )
+            )
+        
     cfg.launcher=args.launcher
 
     return cfg
