@@ -16,7 +16,7 @@ model = dict(
         num_heads=[1, 2, 5, 8],
         num_layers=[2, 2, 2, 2]),
 
-    decode_head=dict(num_classes=41, # 44 ' = 40 clean classes
+    decode_head=dict(num_classes=42, # 44 ' = 40 clean classes
                      in_channels=[64, 128, 320, 512],
                      loss_decode=[
                     dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
