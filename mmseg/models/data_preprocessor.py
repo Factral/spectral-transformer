@@ -107,12 +107,16 @@ class SegDataPreProcessor(BaseDataPreprocessor):
             Dict: Data in the same format as the model input.
         """
         data = self.cast_data(data)  # type: ignore
-        inputs = data['inputs']
+        inputs = data['inputs']['rgb_inputs']
         data_samples = data.get('data_samples', None)
         # TODO: whether normalize should be after stack_batch
 
+        for i in inputs:
+            print(i.shape)
+        print(len(inputs))
+        print(inputs[0].size())
         print(inputs.keys())
-
+        
         if self.channel_conversion and inputs[0].size(0) == 3:
             inputs = [_input[[2, 1, 0], ...] for _input in inputs]
 

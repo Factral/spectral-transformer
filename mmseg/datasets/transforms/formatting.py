@@ -182,7 +182,7 @@ class PackSegSpectralInputs(BaseTransform):
             else:
                 packed_results['inputs'] = img
 
-        if 'spectral_img' in results:
+        if not 'spectral_img' in results:
             spectral_img = results['spectral_img']
             if len(spectral_img.shape) < 3:
                 spectral_img = np.expand_dims(spectral_img, -1)
