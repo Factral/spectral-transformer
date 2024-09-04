@@ -107,15 +107,16 @@ class SegDataPreProcessor(BaseDataPreprocessor):
             Dict: Data in the same format as the model input.
         """
         data = self.cast_data(data)  # type: ignore
-        inputs = data['inputs']['rgb_inputs']
+        if isinstance(data, dict):
+            inputs = data['inputs']['rgb_inputs']
+            spectral = data['inputs']['spectral_inputs']
+
+        print(inputs[0].shape)
+        print(spectral[0].shape)
+        print(self.channel_conversion)
+
         data_samples = data.get('data_samples', None)
         # TODO: whether normalize should be after stack_batch
-
-        for i in inputs:
-            print(i.shape)
-        print(len(inputs))
-        print(inputs[0].size())
-        print(inputs.keys())
         
         if self.channel_conversion and inputs[0].size(0) == 3:
             inputs = [_input[[2, 1, 0], ...] for _input in inputs]
@@ -127,6 +128,7 @@ class SegDataPreProcessor(BaseDataPreprocessor):
         if training:
             assert data_samples is not None, ('During training, ',
                                               '`data_samples` must be define.')
+            
             inputs, data_samples = stack_batch(
                 inputs=inputs,
                 data_samples=data_samples,

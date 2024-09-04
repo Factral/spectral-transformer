@@ -41,7 +41,7 @@ val_dataloader = dict(
         data_prefix=dict(
             img_path='validation/rgb',
             seg_map_path='validation/labels',
-            spectral_path='train/reflectance_cubes'),
+            spectral_path='validation/reflectance_cubes'),
         pipeline=test_pipeline))
 
 
@@ -56,7 +56,7 @@ test_dataloader = dict(
         data_prefix=dict(
             img_path='test/rgb',
             seg_map_path='test/labels',
-            spectral_path='train/reflectance_cubes'),
+            spectral_path='test/reflectance_cubes'),
         pipeline=test_pipeline))
 
 
