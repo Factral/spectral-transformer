@@ -14,6 +14,8 @@ test_pipeline = [
     dict(type='PackSegSpectralInputs')
 ]
 
+DATA_ROOT = './data/LIB-HSI-fixed'
+
 
 train_dataloader = dict(
     batch_size=1,
@@ -22,7 +24,7 @@ train_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         type='HSIFacade',
-        data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
+        data_root=DATA_ROOT,
         data_prefix=dict(
             img_path='train/rgb',
             seg_map_path='train/labels',
@@ -37,7 +39,7 @@ val_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
         type='HSIFacade',
-        data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
+        data_root=DATA_ROOT,
         data_prefix=dict(
             img_path='validation/rgb',
             seg_map_path='validation/labels',
@@ -52,7 +54,7 @@ test_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
         type='HSIFacade',
-        data_root='/media/simulaciones/hdsp/data/LIB-HSI-fixed',
+        data_root=DATA_ROOT,
         data_prefix=dict(
             img_path='test/rgb',
             seg_map_path='test/labels',

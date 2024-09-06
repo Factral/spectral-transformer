@@ -835,4 +835,5 @@ class LoadSpectralImageFromNpyFile(LoadImageFromFile):
         results['spectral_img'] = img
         results['spectral_img_shape'] = img.shape[:2]
         results['spectral_ori_shape'] = img.shape[:2]
+
         return results

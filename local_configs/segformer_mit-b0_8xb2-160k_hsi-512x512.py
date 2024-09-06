@@ -51,6 +51,6 @@ param_scheduler = [
         by_epoch=True,
     )
 ]
-train_dataloader = dict(batch_size=6, num_workers=16)
-val_dataloader = dict(batch_size=2, num_workers=16)
+train_dataloader = dict(batch_size=1, num_workers=4)
+val_dataloader = dict(batch_size=1, num_workers=4)
 test_dataloader = val_dataloader

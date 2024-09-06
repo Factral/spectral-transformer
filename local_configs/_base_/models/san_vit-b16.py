@@ -13,7 +13,7 @@ data_preprocessor = dict(
 
 num_classes = 171
 model = dict(
-    type='MultimodalEncoderDecoder',
+    type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
     pretrained='pretrain/clip_vit_base_patch16_224.pth',
     asymetric_input=True,

@@ -111,10 +111,6 @@ class SegDataPreProcessor(BaseDataPreprocessor):
             inputs = data['inputs']['rgb_inputs']
             spectral = data['inputs']['spectral_inputs']
 
-        print(inputs[0].shape)
-        print(spectral[0].shape)
-        print(self.channel_conversion)
-
         data_samples = data.get('data_samples', None)
         # TODO: whether normalize should be after stack_batch
         
@@ -156,5 +152,7 @@ class SegDataPreProcessor(BaseDataPreprocessor):
                     data_sample.set_metainfo({**pad_info})
             else:
                 inputs = torch.stack(inputs, dim=0)
+
+        inputs = torch.cat([inputs, spectral[0].unsqueeze(0)], dim=1).float()
 
         return dict(inputs=inputs, data_samples=data_samples)
