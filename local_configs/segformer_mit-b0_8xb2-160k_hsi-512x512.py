@@ -1,5 +1,5 @@
 _base_ = [
-    './_base_/models/segformer_mit-b0.py', './_base_/datasets/hsi_facade.py',
+    './_base_/models/segformer_mitdlp-b0.py', './_base_/datasets/hsi_facade.py',
     './_base_/default_runtime.py', './_base_/schedules/schedule_epoch.py'
 ]
 crop_size = (512, 512)
