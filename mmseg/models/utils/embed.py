@@ -7,7 +7,11 @@ import torch.nn.functional as F
 from mmcv.cnn import build_conv_layer, build_norm_layer
 from mmengine.model import BaseModule
 from mmengine.utils import to_2tuple
-
+from operator import mul
+from einops import rearrange, repeat
+from einops.layers.torch import Rearrange
+import torch
+from functools import reduce
 
 class AdaptivePadding(nn.Module):
     """Applies padding to input (if needed) so that input can get fully covered
@@ -328,3 +332,59 @@ class PatchMerging(BaseModule):
         x = self.norm(x) if self.norm else x
         x = self.reduction(x)
         return x, output_size
+
+
+
+
+class BlockwisePatchEmbedding(nn.Module):
+    def __init__(
+        self, num_channels, transformer_dim, patch_depth, patch_height, patch_width
+    ):
+        super().__init__()
+        assert (
+            num_channels % patch_depth == 0
+        ), f"Number of channels {num_channels=} not divisible by patch_depth {patch_depth=}"
+        self.patch_depth = patch_depth
+        self.patch_height = patch_height
+        self.patch_width = patch_width
+        self.transformer_dim = transformer_dim
+
+        self.patch_dim = reduce(mul, [patch_depth, patch_height, patch_width])
+        self.num_blocks = num_channels // patch_depth
+
+        self.pre_norm = nn.LayerNorm(self.patch_dim)
+        self.post_norm = nn.LayerNorm(self.transformer_dim)
+
+        self.to_patch = Rearrange(
+            "b (c p0) (h p1) (w p2) -> b c (h w) (p0 p1 p2)",
+            p0=self.patch_depth,
+            p1=self.patch_height,
+            p2=self.patch_width,
+        )
+        self.blockwise_embed = nn.ModuleList(
+            [
+                nn.Linear(self.patch_dim, self.transformer_dim)
+                for _ in range(self.num_blocks)
+            ]
+        )
+
+    def embed(self, patches):
+        patches = self.pre_norm(patches)
+
+        embeds = []
+        for i in range(self.num_blocks):
+            embeds.append(self.blockwise_embed[i](patches[:, i, :, :]))
+
+        embeds = torch.stack(embeds, dim=1)  # .flatten(start_dim=1, end_dim=2)
+        embeds = rearrange(embeds, "b g n d -> b (g n) d")
+
+        embeds = self.post_norm(embeds)
+
+        return embeds
+
+    def forward(self, x):
+        patches = self.to_patch(x)
+
+        embeddings = self.embed(patches)
+
+        return embeddings

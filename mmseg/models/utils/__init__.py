@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .basic_block import BasicBlock, Bottleneck
-from .embed import PatchEmbed
+from .embed import PatchEmbed, BlockwisePatchEmbedding
 from .encoding import Encoding
 from .inverted_residual import InvertedResidual, InvertedResidualV3
 from .make_divisible import make_divisible
@@ -23,5 +23,5 @@ __all__ = [
     'nchw_to_nlc', 'nlc_to_nchw', 'nchw2nlc2nchw', 'nlc2nchw2nlc', 'Encoding',
     'Upsample', 'resize', 'DAPPM', 'PAPPM', 'BasicBlock', 'Bottleneck',
     'cross_attn_layer', 'LayerNorm2d', 'MLP',
-    'get_uncertain_point_coords_with_randomness'
+    'get_uncertain_point_coords_with_randomness', 'BlockwisePatchEmbedding' 
 ]

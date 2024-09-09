@@ -13,7 +13,7 @@ from mmengine.model.weight_init import (constant_init, normal_init,
                                         trunc_normal_init)
 
 from mmseg.registry import MODELS
-from ..utils import PatchEmbed, nchw_to_nlc, nlc_to_nchw
+from ..utils import PatchEmbed, nchw_to_nlc, nlc_to_nchw, BlockwisePatchEmbedding
 
 
 class MixFFN(BaseModule):
@@ -418,6 +418,7 @@ class MixVisionTransformerDPL(BaseModule):
             norm = build_norm_layer(norm_cfg, embed_dims_i)[1]
             self.layers.append(ModuleList([patch_embed, layer, norm]))
             cur += num_layer
+        self.to_patch_embedding = BlockwisePatchEmbedding(31, 64, 10, 7, 7)
 
     def init_weights(self):
         if self.init_cfg is None:
@@ -438,7 +439,12 @@ class MixVisionTransformerDPL(BaseModule):
     def forward(self, x):
         outs = []
 
-        print(x.shape)
+        rgb = x[:, :3, :, :]
+        x = rgb
+        spectral = x[:, 3:, :, :]
+
+        spectral_tokens = self.to_patch_embedding(spectral)
+        print(spectral_tokens.shape)
 
         for i, layer in enumerate(self.layers):
             x, hw_shape = layer[0](x) # patch embed
