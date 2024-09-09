@@ -296,7 +296,7 @@ class TransformerEncoderLayer(BaseModule):
 
 
 @MODELS.register_module()
-class MixVisionTransformer(BaseModule):
+class MixVisionTransformerDPL(BaseModule):
     """The backbone of Segformer.
 
     This backbone is the implementation of `SegFormer: Simple and
@@ -438,6 +438,8 @@ class MixVisionTransformer(BaseModule):
     def forward(self, x):
         outs = []
 
+        print(x.shape)
+
         for i, layer in enumerate(self.layers):
             x, hw_shape = layer[0](x) # patch embed
             for block in layer[1]: # transformer layers
@@ -447,6 +449,5 @@ class MixVisionTransformer(BaseModule):
             if i in self.out_indices:
                 outs.append(x)
 
-        print([out.shape for out in outs])
 
         return outs
