@@ -153,6 +153,7 @@ class SegDataPreProcessor(BaseDataPreprocessor):
             else:
                 inputs = torch.stack(inputs, dim=0)
 
-        inputs = torch.cat([inputs, spectral[0].unsqueeze(0)], dim=1).float()
+        spectral = torch.stack(spectral,dim=0)
+        inputs = torch.cat([inputs, spectral], dim=1).float()
 
         return dict(inputs=inputs, data_samples=data_samples)

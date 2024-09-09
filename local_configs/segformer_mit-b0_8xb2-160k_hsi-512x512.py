@@ -19,8 +19,8 @@ model = dict(
     decode_head=dict(num_classes=44, # 44 ' = 40 clean classes
                      in_channels=[64, 128, 320, 512],
                      loss_decode=[
-                    dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                    #dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=2.0)
+                    #dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+                    dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=2.0)
                     #dict(type='DiceLoss', loss_name='loss_dice', loss_weight=3.0, use_sigmoid=False),
 
                     ])
@@ -51,6 +51,6 @@ param_scheduler = [
         by_epoch=True,
     )
 ]
-train_dataloader = dict(batch_size=1, num_workers=4)
-val_dataloader = dict(batch_size=1, num_workers=4)
+train_dataloader = dict(batch_size=16, num_workers=8)
+val_dataloader = dict(batch_size=4, num_workers=8)
 test_dataloader = val_dataloader
