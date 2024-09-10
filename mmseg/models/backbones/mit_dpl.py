@@ -1,459 +1,500 @@
-# Copyright (c) OpenMMLab. All rights reserved.
-import math
-import warnings
-
+# ---------------------------------------------------------------
+# Copyright (c) 2021, NVIDIA Corporation. All rights reserved.
+#
+# This work is licensed under the NVIDIA Source Code License
+# ---------------------------------------------------------------
+# ---------------------------------------------------------------
+# Copyright (c) 2021, NVIDIA Corporation. All rights reserved.
+#
+# This work is licensed under the NVIDIA Source Code License
+# ---------------------------------------------------------------
 import torch
 import torch.nn as nn
-import torch.utils.checkpoint as cp
-from mmcv.cnn import Conv2d, build_activation_layer, build_norm_layer
-from mmcv.cnn.bricks.drop import build_dropout
-from mmcv.cnn.bricks.transformer import MultiheadAttention
-from mmengine.model import BaseModule, ModuleList, Sequential
-from mmengine.model.weight_init import (constant_init, normal_init,
-                                        trunc_normal_init)
+import torch.nn.functional as F
+from functools import partial
 
-from mmseg.registry import MODELS
-from ..utils import PatchEmbed, nchw_to_nlc, nlc_to_nchw, BlockwisePatchEmbedding
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from timm.models.registry import register_model
+from timm.models.vision_transformer import _cfg
+from mmseg.models.builder import BACKBONES
+from mmseg.utils import get_root_logger
+from mmcv.runner import load_checkpoint
+import math
 
-
-class MixFFN(BaseModule):
-    """An implementation of MixFFN of Segformer.
-
-    The differences between MixFFN & FFN:
-        1. Use 1X1 Conv to replace Linear layer.
-        2. Introduce 3X3 Conv to encode positional information.
-    Args:
-        embed_dims (int): The feature dimension. Same as
-            `MultiheadAttention`. Defaults: 256.
-        feedforward_channels (int): The hidden dimension of FFNs.
-            Defaults: 1024.
-        act_cfg (dict, optional): The activation config for FFNs.
-            Default: dict(type='ReLU')
-        ffn_drop (float, optional): Probability of an element to be
-            zeroed in FFN. Default 0.0.
-        dropout_layer (obj:`ConfigDict`): The dropout_layer used
-            when adding the shortcut.
-        init_cfg (obj:`mmcv.ConfigDict`): The Config for initialization.
-            Default: None.
-    """
-
-    def __init__(self,
-                 embed_dims,
-                 feedforward_channels,
-                 act_cfg=dict(type='GELU'),
-                 ffn_drop=0.,
-                 dropout_layer=None,
-                 init_cfg=None):
-        super().__init__(init_cfg)
-
-        self.embed_dims = embed_dims
-        self.feedforward_channels = feedforward_channels
-        self.act_cfg = act_cfg
-        self.activate = build_activation_layer(act_cfg)
-
-        in_channels = embed_dims
-        fc1 = Conv2d(
-            in_channels=in_channels,
-            out_channels=feedforward_channels,
-            kernel_size=1,
-            stride=1,
-            bias=True)
-        # 3x3 depth wise conv to provide positional encode information
-        pe_conv = Conv2d(
-            in_channels=feedforward_channels,
-            out_channels=feedforward_channels,
-            kernel_size=3,
-            stride=1,
-            padding=(3 - 1) // 2,
-            bias=True,
-            groups=feedforward_channels)
-        fc2 = Conv2d(
-            in_channels=feedforward_channels,
-            out_channels=in_channels,
-            kernel_size=1,
-            stride=1,
-            bias=True)
-        drop = nn.Dropout(ffn_drop)
-        layers = [fc1, pe_conv, self.activate, drop, fc2, drop]
-        self.layers = Sequential(*layers)
-        self.dropout_layer = build_dropout(
-            dropout_layer) if dropout_layer else torch.nn.Identity()
-
-    def forward(self, x, hw_shape, identity=None):
-        out = nlc_to_nchw(x, hw_shape)
-        out = self.layers(out)
-        out = nchw_to_nlc(out)
-        if identity is None:
-            identity = x
-        return identity + self.dropout_layer(out)
+from functools import reduce
+from operator import mul
 
 
-class EfficientMultiheadAttention(MultiheadAttention):
-    """An implementation of Efficient Multi-head Attention of Segformer.
-
-    This module is modified from MultiheadAttention which is a module from
-    mmcv.cnn.bricks.transformer.
-    Args:
-        embed_dims (int): The embedding dimension.
-        num_heads (int): Parallel attention heads.
-        attn_drop (float): A Dropout layer on attn_output_weights.
-            Default: 0.0.
-        proj_drop (float): A Dropout layer after `nn.MultiheadAttention`.
-            Default: 0.0.
-        dropout_layer (obj:`ConfigDict`): The dropout_layer used
-            when adding the shortcut. Default: None.
-        init_cfg (obj:`mmcv.ConfigDict`): The Config for initialization.
-            Default: None.
-        batch_first (bool): Key, Query and Value are shape of
-            (batch, n, embed_dim)
-            or (n, batch, embed_dim). Default: False.
-        qkv_bias (bool): enable bias for qkv if True. Default True.
-        norm_cfg (dict): Config dict for normalization layer.
-            Default: dict(type='LN').
-        sr_ratio (int): The ratio of spatial reduction of Efficient Multi-head
-            Attention of Segformer. Default: 1.
-    """
-
-    def __init__(self,
-                 embed_dims,
-                 num_heads,
-                 attn_drop=0.,
-                 proj_drop=0.,
-                 dropout_layer=None,
-                 init_cfg=None,
-                 batch_first=True,
-                 qkv_bias=False,
-                 norm_cfg=dict(type='LN'),
-                 sr_ratio=1):
-        super().__init__(
-            embed_dims,
-            num_heads,
-            attn_drop,
-            proj_drop,
-            dropout_layer=dropout_layer,
-            init_cfg=init_cfg,
-            batch_first=batch_first,
-            bias=qkv_bias)
-
-        self.sr_ratio = sr_ratio
-        if sr_ratio > 1:
-            self.sr = Conv2d(
-                in_channels=embed_dims,
-                out_channels=embed_dims,
-                kernel_size=sr_ratio,
-                stride=sr_ratio)
-            # The ret[0] of build_norm_layer is norm name.
-            self.norm = build_norm_layer(norm_cfg, embed_dims)[1]
-
-        # handle the BC-breaking from https://github.com/open-mmlab/mmcv/pull/1418 # noqa
-        from mmseg import digit_version, mmcv_version
-        if mmcv_version < digit_version('1.3.17'):
-            warnings.warn('The legacy version of forward function in'
-                          'EfficientMultiheadAttention is deprecated in'
-                          'mmcv>=1.3.17 and will no longer support in the'
-                          'future. Please upgrade your mmcv.')
-            self.forward = self.legacy_forward
-
-    def forward(self, x, hw_shape, identity=None):
-
-        x_q = x
-        if self.sr_ratio > 1:
-            x_kv = nlc_to_nchw(x, hw_shape)
-            x_kv = self.sr(x_kv)
-            x_kv = nchw_to_nlc(x_kv)
-            x_kv = self.norm(x_kv)
-        else:
-            x_kv = x
-
-        if identity is None:
-            identity = x_q
-
-        # Because the dataflow('key', 'query', 'value') of
-        # ``torch.nn.MultiheadAttention`` is (num_query, batch,
-        # embed_dims), We should adjust the shape of dataflow from
-        # batch_first (batch, num_query, embed_dims) to num_query_first
-        # (num_query ,batch, embed_dims), and recover ``attn_output``
-        # from num_query_first to batch_first.
-        if self.batch_first:
-            x_q = x_q.transpose(0, 1)
-            x_kv = x_kv.transpose(0, 1)
-
-        out = self.attn(query=x_q, key=x_kv, value=x_kv)[0]
-
-        if self.batch_first:
-            out = out.transpose(0, 1)
-
-        return identity + self.dropout_layer(self.proj_drop(out))
-
-    def legacy_forward(self, x, hw_shape, identity=None):
-        """multi head attention forward in mmcv version < 1.3.17."""
-
-        x_q = x
-        if self.sr_ratio > 1:
-            x_kv = nlc_to_nchw(x, hw_shape)
-            x_kv = self.sr(x_kv)
-            x_kv = nchw_to_nlc(x_kv)
-            x_kv = self.norm(x_kv)
-        else:
-            x_kv = x
-
-        if identity is None:
-            identity = x_q
-
-        # `need_weights=True` will let nn.MultiHeadAttention
-        # `return attn_output, attn_output_weights.sum(dim=1) / num_heads`
-        # The `attn_output_weights.sum(dim=1)` may cause cuda error. So, we set
-        # `need_weights=False` to ignore `attn_output_weights.sum(dim=1)`.
-        # This issue - `https://github.com/pytorch/pytorch/issues/37583` report
-        # the error that large scale tensor sum operation may cause cuda error.
-        out = self.attn(query=x_q, key=x_kv, value=x_kv, need_weights=False)[0]
-
-        return identity + self.dropout_layer(self.proj_drop(out))
-
-
-class TransformerEncoderLayer(BaseModule):
-    """Implements one encoder layer in Segformer.
-
-    Args:
-        embed_dims (int): The feature dimension.
-        num_heads (int): Parallel attention heads.
-        feedforward_channels (int): The hidden dimension for FFNs.
-        drop_rate (float): Probability of an element to be zeroed.
-            after the feed forward layer. Default 0.0.
-        attn_drop_rate (float): The drop out rate for attention layer.
-            Default 0.0.
-        drop_path_rate (float): stochastic depth rate. Default 0.0.
-        qkv_bias (bool): enable bias for qkv if True.
-            Default: True.
-        act_cfg (dict): The activation config for FFNs.
-            Default: dict(type='GELU').
-        norm_cfg (dict): Config dict for normalization layer.
-            Default: dict(type='LN').
-        batch_first (bool): Key, Query and Value are shape of
-            (batch, n, embed_dim)
-            or (n, batch, embed_dim). Default: False.
-        init_cfg (dict, optional): Initialization config dict.
-            Default:None.
-        sr_ratio (int): The ratio of spatial reduction of Efficient Multi-head
-            Attention of Segformer. Default: 1.
-        with_cp (bool): Use checkpoint or not. Using checkpoint will save
-            some memory while slowing down the training speed. Default: False.
-    """
-
-    def __init__(self,
-                 embed_dims,
-                 num_heads,
-                 feedforward_channels,
-                 drop_rate=0.,
-                 attn_drop_rate=0.,
-                 drop_path_rate=0.,
-                 qkv_bias=True,
-                 act_cfg=dict(type='GELU'),
-                 norm_cfg=dict(type='LN'),
-                 batch_first=True,
-                 sr_ratio=1,
-                 with_cp=False):
+class Mlp(nn.Module):
+    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
+        out_features = out_features or in_features
+        hidden_features = hidden_features or in_features
+        self.fc1 = nn.Linear(in_features, hidden_features)
+        self.dwconv = DWConv(hidden_features)
+        self.act = act_layer()
+        self.fc2 = nn.Linear(hidden_features, out_features)
+        self.drop = nn.Dropout(drop)
 
-        # The ret[0] of build_norm_layer is norm name.
-        self.norm1 = build_norm_layer(norm_cfg, embed_dims)[1]
+        self.apply(self._init_weights)
 
-        self.attn = EfficientMultiheadAttention(
-            embed_dims=embed_dims,
-            num_heads=num_heads,
-            attn_drop=attn_drop_rate,
-            proj_drop=drop_rate,
-            dropout_layer=dict(type='DropPath', drop_prob=drop_path_rate),
-            batch_first=batch_first,
-            qkv_bias=qkv_bias,
-            norm_cfg=norm_cfg,
-            sr_ratio=sr_ratio)
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
 
-        # The ret[0] of build_norm_layer is norm name.
-        self.norm2 = build_norm_layer(norm_cfg, embed_dims)[1]
+    def forward(self, x, H, W):
+        x = self.fc1(x)
+        # x = self.dwconv(x, H, W)
+        prompt_token = x[:, :10, :]
+        x = self.dwconv(x[:, 10:, :], H, W)
+        x = torch.cat([prompt_token, x], dim=1)
 
-        self.ffn = MixFFN(
-            embed_dims=embed_dims,
-            feedforward_channels=feedforward_channels,
-            ffn_drop=drop_rate,
-            dropout_layer=dict(type='DropPath', drop_prob=drop_path_rate),
-            act_cfg=act_cfg)
-
-        self.with_cp = with_cp
-
-    def forward(self, x, hw_shape):
-
-        def _inner_forward(x):
-            x = self.attn(self.norm1(x), hw_shape, identity=x)
-            x = self.ffn(self.norm2(x), hw_shape, identity=x)
-            return x
-
-        if self.with_cp and x.requires_grad:
-            x = cp.checkpoint(_inner_forward, x)
-        else:
-            x = _inner_forward(x)
+        x = self.act(x)
+        x = self.drop(x)
+        x = self.fc2(x)
+        x = self.drop(x)
         return x
 
 
-@MODELS.register_module()
-class MixVisionTransformerDPL(BaseModule):
-    """The backbone of Segformer.
+class Attention(nn.Module):
+    def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0., sr_ratio=1):
+        super().__init__()
+        assert dim % num_heads == 0, f"dim {dim} should be divided by num_heads {num_heads}."
 
-    This backbone is the implementation of `SegFormer: Simple and
-    Efficient Design for Semantic Segmentation with
-    Transformers <https://arxiv.org/abs/2105.15203>`_.
-    Args:
-        in_channels (int): Number of input channels. Default: 3.
-        embed_dims (int): Embedding dimension. Default: 768.
-        num_stags (int): The num of stages. Default: 4.
-        num_layers (Sequence[int]): The layer number of each transformer encode
-            layer. Default: [3, 4, 6, 3].
-        num_heads (Sequence[int]): The attention heads of each transformer
-            encode layer. Default: [1, 2, 4, 8].
-        patch_sizes (Sequence[int]): The patch_size of each overlapped patch
-            embedding. Default: [7, 3, 3, 3].
-        strides (Sequence[int]): The stride of each overlapped patch embedding.
-            Default: [4, 2, 2, 2].
-        sr_ratios (Sequence[int]): The spatial reduction rate of each
-            transformer encode layer. Default: [8, 4, 2, 1].
-        out_indices (Sequence[int] | int): Output from which stages.
-            Default: (0, 1, 2, 3).
-        mlp_ratio (int): ratio of mlp hidden dim to embedding dim.
-            Default: 4.
-        qkv_bias (bool): Enable bias for qkv if True. Default: True.
-        drop_rate (float): Probability of an element to be zeroed.
-            Default 0.0
-        attn_drop_rate (float): The drop out rate for attention layer.
-            Default 0.0
-        drop_path_rate (float): stochastic depth rate. Default 0.0
-        norm_cfg (dict): Config dict for normalization layer.
-            Default: dict(type='LN')
-        act_cfg (dict): The activation config for FFNs.
-            Default: dict(type='GELU').
-        pretrained (str, optional): model pretrained path. Default: None.
-        init_cfg (dict or list[dict], optional): Initialization config dict.
-            Default: None.
-        with_cp (bool): Use checkpoint or not. Using checkpoint will save
-            some memory while slowing down the training speed. Default: False.
+        self.dim = dim
+        self.num_heads = num_heads
+        head_dim = dim // num_heads
+        self.scale = qk_scale or head_dim ** -0.5
+
+        self.q = nn.Linear(dim, dim, bias=qkv_bias)
+        self.kv = nn.Linear(dim, dim * 2, bias=qkv_bias)
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+        self.sr_ratio = sr_ratio
+        if sr_ratio > 1:
+            self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
+            self.norm = nn.LayerNorm(dim)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
+
+    def forward(self, x, H, W):
+        B, N, C = x.shape
+        q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+
+        # if self.sr_ratio > 1:
+        #     x_ = x.permute(0, 2, 1).reshape(B, C, H, W)
+        #     x_ = self.sr(x_).reshape(B, C, -1).permute(0, 2, 1)
+        #     x_ = self.norm(x_)
+        #     kv = self.kv(x_).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        if self.sr_ratio > 1:
+            prompt_token = x[:, :10, :]
+            x_ = x[:, 10:, :].permute(0, 2, 1).reshape(B, C, H, W)
+            x_ = self.sr(x_).reshape(B, C, -1).permute(0, 2, 1)
+            x_ = torch.cat([prompt_token, x_], 1)
+            x_ = self.norm(x_)
+            kv = self.kv(x_).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        else:
+            kv = self.kv(x).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        k, v = kv[0], kv[1]
+
+        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = attn.softmax(dim=-1)
+        attn = self.attn_drop(attn)
+
+        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = self.proj(x)
+        x = self.proj_drop(x)
+
+        return x
+
+
+class Block(nn.Module):
+
+    def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, sr_ratio=1):
+        super().__init__()
+        self.norm1 = norm_layer(dim)
+        self.attn = Attention(
+            dim,
+            num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
+            attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio)
+        # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.norm2 = norm_layer(dim)
+        mlp_hidden_dim = int(dim * mlp_ratio)
+        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
+
+    def forward(self, x, H, W):
+        x = x + self.drop_path(self.attn(self.norm1(x), H, W))
+        x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
+
+        return x
+
+
+class OverlapPatchEmbed(nn.Module):
+    """ Image to Patch Embedding
     """
 
-    def __init__(self,
-                 in_channels=3,
-                 embed_dims=64,
-                 num_stages=4,
-                 num_layers=[3, 4, 6, 3],
-                 num_heads=[1, 2, 4, 8],
-                 patch_sizes=[7, 3, 3, 3],
-                 strides=[4, 2, 2, 2],
-                 sr_ratios=[8, 4, 2, 1],
-                 out_indices=(0, 1, 2, 3),
-                 mlp_ratio=4,
-                 qkv_bias=True,
-                 drop_rate=0.,
-                 attn_drop_rate=0.,
-                 drop_path_rate=0.,
-                 act_cfg=dict(type='GELU'),
-                 norm_cfg=dict(type='LN', eps=1e-6),
-                 pretrained=None,
-                 init_cfg=None,
-                 with_cp=False):
-        super().__init__(init_cfg=init_cfg)
+    def __init__(self, img_size=224, patch_size=7, stride=4, in_chans=3, embed_dim=768):
+        super().__init__()
+        img_size = to_2tuple(img_size)
+        patch_size = to_2tuple(patch_size)
 
-        assert not (init_cfg and pretrained), \
-            'init_cfg and pretrained cannot be set at the same time'
-        if isinstance(pretrained, str):
-            warnings.warn('DeprecationWarning: pretrained is deprecated, '
-                          'please use "init_cfg" instead')
-            self.init_cfg = dict(type='Pretrained', checkpoint=pretrained)
-        elif pretrained is not None:
-            raise TypeError('pretrained must be a str or None')
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.H, self.W = img_size[0] // patch_size[0], img_size[1] // patch_size[1]
+        self.num_patches = self.H * self.W
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride,
+                              padding=(patch_size[0] // 2, patch_size[1] // 2))
+        self.norm = nn.LayerNorm(embed_dim)
 
-        self.embed_dims = embed_dims
-        self.num_stages = num_stages
-        self.num_layers = num_layers
-        self.num_heads = num_heads
-        self.patch_sizes = patch_sizes
-        self.strides = strides
-        self.sr_ratios = sr_ratios
-        self.with_cp = with_cp
-        assert num_stages == len(num_layers) == len(num_heads) \
-               == len(patch_sizes) == len(strides) == len(sr_ratios)
+        self.apply(self._init_weights)
 
-        self.out_indices = out_indices
-        assert max(out_indices) < self.num_stages
-
-        # transformer encoder
-        dpr = [
-            x.item()
-            for x in torch.linspace(0, drop_path_rate, sum(num_layers))
-        ]  # stochastic num_layer decay rule
-
-        cur = 0
-        self.layers = ModuleList()
-        for i, num_layer in enumerate(num_layers):
-            embed_dims_i = embed_dims * num_heads[i]
-            patch_embed = PatchEmbed(
-                in_channels=in_channels,
-                embed_dims=embed_dims_i,
-                kernel_size=patch_sizes[i],
-                stride=strides[i],
-                padding=patch_sizes[i] // 2,
-                norm_cfg=norm_cfg)
-            layer = ModuleList([
-                TransformerEncoderLayer(
-                    embed_dims=embed_dims_i,
-                    num_heads=num_heads[i],
-                    feedforward_channels=mlp_ratio * embed_dims_i,
-                    drop_rate=drop_rate,
-                    attn_drop_rate=attn_drop_rate,
-                    drop_path_rate=dpr[cur + idx],
-                    qkv_bias=qkv_bias,
-                    act_cfg=act_cfg,
-                    norm_cfg=norm_cfg,
-                    with_cp=with_cp,
-                    sr_ratio=sr_ratios[i]) for idx in range(num_layer)
-            ])
-            in_channels = embed_dims_i
-            # The ret[0] of build_norm_layer is norm name.
-            norm = build_norm_layer(norm_cfg, embed_dims_i)[1]
-            self.layers.append(ModuleList([patch_embed, layer, norm]))
-            cur += num_layer
-        self.to_patch_embedding = BlockwisePatchEmbedding(31, 64, 10, 7, 7)
-
-    def init_weights(self):
-        if self.init_cfg is None:
-            for m in self.modules():
-                if isinstance(m, nn.Linear):
-                    trunc_normal_init(m, std=.02, bias=0.)
-                elif isinstance(m, nn.LayerNorm):
-                    constant_init(m, val=1.0, bias=0.)
-                elif isinstance(m, nn.Conv2d):
-                    fan_out = m.kernel_size[0] * m.kernel_size[
-                        1] * m.out_channels
-                    fan_out //= m.groups
-                    normal_init(
-                        m, mean=0, std=math.sqrt(2.0 / fan_out), bias=0)
-        else:
-            super().init_weights()
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
 
     def forward(self, x):
+        x = self.proj(x)
+        _, _, H, W = x.shape
+        x = x.flatten(2).transpose(1, 2)
+        x = self.norm(x)
+
+        return x, H, W
+
+
+class MixVisionTransformerVPT(nn.Module):
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
+                 num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
+                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
+                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], freeze=True, **kwargs):
+        super().__init__()
+        self.num_classes = num_classes
+        self.depths = depths
+        self.embed_dims = embed_dims
+
+        # patch_embed
+        self.patch_embed1 = OverlapPatchEmbed(img_size=img_size, patch_size=7, stride=4, in_chans=in_chans,
+                                              embed_dim=embed_dims[0])
+        self.patch_embed2 = OverlapPatchEmbed(img_size=img_size // 4, patch_size=3, stride=2, in_chans=embed_dims[0],
+                                              embed_dim=embed_dims[1])
+        self.patch_embed3 = OverlapPatchEmbed(img_size=img_size // 8, patch_size=3, stride=2, in_chans=embed_dims[1],
+                                              embed_dim=embed_dims[2])
+        self.patch_embed4 = OverlapPatchEmbed(img_size=img_size // 16, patch_size=3, stride=2, in_chans=embed_dims[2],
+                                              embed_dim=embed_dims[3])
+
+        # transformer encoder
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        cur = 0
+        self.block1 = nn.ModuleList([Block(
+            dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+            sr_ratio=sr_ratios[0])
+            for i in range(depths[0])])
+        self.norm1 = norm_layer(embed_dims[0])
+
+        cur += depths[0]
+        self.block2 = nn.ModuleList([Block(
+            dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+            sr_ratio=sr_ratios[1])
+            for i in range(depths[1])])
+        self.norm2 = norm_layer(embed_dims[1])
+
+        cur += depths[1]
+        self.block3 = nn.ModuleList([Block(
+            dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+            sr_ratio=sr_ratios[2])
+            for i in range(depths[2])])
+        self.norm3 = norm_layer(embed_dims[2])
+
+        cur += depths[2]
+        self.block4 = nn.ModuleList([Block(
+            dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+            sr_ratio=sr_ratios[3])
+            for i in range(depths[3])])
+        self.norm4 = norm_layer(embed_dims[3])
+
+        # classification head
+        # self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
+
+        self.apply(self._init_weights)
+
+        # vpt config
+        self.token_depth = 0
+        self.num_tokens_1 = 10
+        self.num_tokens_2 = 10
+        self.num_tokens_3 = 10
+        self.num_tokens_4 = 10
+
+        self.prompt_dropout = nn.Dropout(0)
+        self.prompt_proj = nn.Identity()
+
+
+        def prompt_init(prompt_embeddings, dim):
+            val = math.sqrt(
+                    6. / float(3 * reduce(mul, [patch_size, patch_size], 1) + dim))  # noqa
+            nn.init.uniform_(prompt_embeddings.data, -val, val)
+
+        self.prompt_cfg = kwargs['prompt_cfg']
+        if 'deep' in self.prompt_cfg:
+            self.prompt_embeddings_1 = nn.Parameter(torch.zeros(self.depths[0], self.num_tokens_1, self.embed_dims[0]))
+            prompt_init(self.prompt_embeddings_1, self.embed_dims[0])
+            self.prompt_embeddings_2 = nn.Parameter(torch.zeros(self.depths[1], self.num_tokens_2, self.embed_dims[1]))
+            prompt_init(self.prompt_embeddings_2, self.embed_dims[1])
+            self.prompt_embeddings_3 = nn.Parameter(torch.zeros(self.depths[2], self.num_tokens_3, self.embed_dims[2]))
+            prompt_init(self.prompt_embeddings_3, self.embed_dims[2])
+            self.prompt_embeddings_4 = nn.Parameter(torch.zeros(self.depths[3], self.num_tokens_4, self.embed_dims[3]))
+            prompt_init(self.prompt_embeddings_4, self.embed_dims[3])
+        else:
+            self.prompt_embeddings_1 = nn.Parameter(torch.zeros(1, self.num_tokens, self.embed_dims[0]))
+            prompt_init(self.prompt_embeddings_1, self.embed_dims[0])
+
+        if freeze:
+            self.freeze()
+
+        model_total_params = sum(p.numel() for p in self.encoder.parameters())
+        model_grad_params = sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
+        print('model_grad_params:' + str(model_grad_params),
+              '\nmodel_total_params:' + str(model_total_params))
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
+                
+
+    def init_weights(self, pretrained=None):
+        if isinstance(pretrained, str):
+            logger = get_root_logger()
+            load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
+
+    def reset_drop_path(self, drop_path_rate):
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
+        cur = 0
+        for i in range(self.depths[0]):
+            self.block1[i].drop_path.drop_prob = dpr[cur + i]
+
+        cur += self.depths[0]
+        for i in range(self.depths[1]):
+            self.block2[i].drop_path.drop_prob = dpr[cur + i]
+
+        cur += self.depths[1]
+        for i in range(self.depths[2]):
+            self.block3[i].drop_path.drop_prob = dpr[cur + i]
+
+        cur += self.depths[2]
+        for i in range(self.depths[3]):
+            self.block4[i].drop_path.drop_prob = dpr[cur + i]
+
+    def freeze_patch_emb(self):
+        self.patch_embed1.requires_grad = False
+
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        return {'pos_embed1', 'pos_embed2', 'pos_embed3', 'pos_embed4', 'cls_token'}  # has pos_embed may be better
+
+    def get_classifier(self):
+        return self.head
+
+    def reset_classifier(self, num_classes, global_pool=''):
+        self.num_classes = num_classes
+        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+
+    def forward_features(self, x):
+        B = x.shape[0]
         outs = []
 
-        rgb = x[:, :3, :, :]
-        x = rgb
-        spectral = x[:, 3:, :, :]
+        # stage 1
+        x, H, W = self.patch_embed1(x)
 
-        spectral_tokens = self.to_patch_embedding(spectral)
-        print(spectral_tokens.shape)
+        for i, blk in enumerate(self.block1):
+            x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_1[i])).expand(B, -1, -1), x], dim=1)
+            x = blk(x, H + self.token_depth, W)
+            x = x[:, self.num_tokens_1:, :]
+        x = self.norm1(x)
+        x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        outs.append(x)
 
-        for i, layer in enumerate(self.layers):
-            x, hw_shape = layer[0](x) # patch embed
-            for block in layer[1]: # transformer layers
-                x = block(x, hw_shape)
-            x = layer[2](x) # normalization
-            x = nlc_to_nchw(x, hw_shape)
-            if i in self.out_indices:
-                outs.append(x)
+        # stage 2
+        x, H, W = self.patch_embed2(x)
+        for i, blk in enumerate(self.block2):
+            x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_2[i])).expand(B, -1, -1), x],dim=1)
+            x = blk(x, H + self.token_depth, W)
+            x = x[:, self.num_tokens_2:, :]
+        x = self.norm2(x)
+        x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        outs.append(x)
 
+        # stage 3
+        x, H, W = self.patch_embed3(x)
+        for i, blk in enumerate(self.block3):
+            x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_3[i])).expand(B, -1, -1), x],dim=1)
+            x = blk(x, H + self.token_depth, W)
+            x = x[:, self.num_tokens_3:, :]
+        x = self.norm3(x)
+        x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        outs.append(x)
+
+        # stage 4
+        x, H, W = self.patch_embed4(x)
+
+        for i, blk in enumerate(self.block4):
+            x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_4[i])).expand(B, -1, -1), x],dim=1)
+            x = blk(x, H + self.token_depth, W)
+            x = x[:, self.num_tokens_4:, :]
+        x = self.norm4(x)
+        x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        outs.append(x)
 
         return outs
+
+    def forward(self, x):
+        x = self.forward_features(x)
+        # x = self.head(x)
+
+        return x
+
+
+    def freeze(self):
+        for k, p in self.encoder.named_parameters():
+            if "prompt" not in k and "decode_head" not in k:
+                p.requires_grad = False
+
+
+
+class DWConv(nn.Module):
+    def __init__(self, dim=768):
+        super(DWConv, self).__init__()
+        self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
+
+    def forward(self, x, H, W):
+        B, N, C = x.shape
+        x = x.transpose(1, 2).view(B, C, H, W)
+        x = self.dwconv(x)
+        x = x.flatten(2).transpose(1, 2)
+
+        return x
+
+
+
+@BACKBONES.register_module()
+class mit_b0_vpt(MixVisionTransformerVPT):
+    def __init__(self, **kwargs):
+        super(mit_b0_vpt, self).__init__(
+            patch_size=4, embed_dims=[32, 64, 160, 256], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0, drop_path_rate=0.1, **kwargs)
+
+
+@BACKBONES.register_module()
+class mit_b1_vpt(MixVisionTransformerVPT):
+    def __init__(self, **kwargs):
+        super(mit_b1_vpt, self).__init__(
+            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0, drop_path_rate=0.1, **kwargs)
+
+
+@BACKBONES.register_module()
+class mit_b2_vpt(MixVisionTransformerVPT):
+    def __init__(self, **kwargs):
+        super(mit_b2_vpt, self).__init__(
+            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0, drop_path_rate=0.1, **kwargs)
+
+
+@BACKBONES.register_module()
+class mit_b3_vpt(MixVisionTransformerVPT):
+    def __init__(self, **kwargs):
+        super(mit_b3_vpt, self).__init__(
+            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 18, 3], sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0, drop_path_rate=0.1, **kwargs)
+
+
+@BACKBONES.register_module()
+class mit_b4_vpt(MixVisionTransformerVPT):
+    def __init__(self, **kwargs):
+        super(mit_b4_vpt, self).__init__(
+            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 8, 27, 3], sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0, drop_path_rate=0.1, **kwargs)
+
+
+@BACKBONES.register_module()
+class mit_b5_vpt(MixVisionTransformerVPT):
+    def __init__(self, **kwargs):
+        super(mit_b5_vpt, self).__init__(
+            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 6, 40, 3], sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0, drop_path_rate=0.1, **kwargs)

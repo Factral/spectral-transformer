@@ -1,4 +1,6 @@
 # model settings
+from mmseg.models.builder import BACKBONES, SEGMENTORS
+
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 
 data_preprocessor = dict(
@@ -12,33 +14,23 @@ data_preprocessor = dict(
 model = dict(
     type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
-    pretrained=None,
+    pretrained='./mit_b4.pth',
     backbone=dict(
-        type='MixVisionTransformerDPL',
-        in_channels=34,
-        embed_dims=32,
-        num_stages=4,
-        num_layers=[2, 2, 2, 2],
-        num_heads=[1, 2, 5, 8],
-        patch_sizes=[7, 3, 3, 3],
-        sr_ratios=[8, 4, 2, 1],
-        out_indices=(0, 1, 2, 3),
-        mlp_ratio=4,
-        qkv_bias=True,
-        drop_rate=0.0,
-        attn_drop_rate=0.0,
-        drop_path_rate=0.1),
-    decode_head=dict(
-        type='SegformerHead',
-        in_channels=[32, 64, 160, 256],
-        in_index=[0, 1, 2, 3],
-        channels=256,
-        dropout_ratio=0.1,
-        num_classes=19,
-        norm_cfg=norm_cfg,
-        align_corners=False,
-        loss_decode=dict(
-            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),
+                type=BACKBONES.get('mit_b4_vpt'),
+                img_size=512,
+                prompt_cfg='deep',),
+     decode_head=dict(
+                type='SegFormerHead',
+                in_channels=[64, 128, 320, 512],
+                in_index=[0, 1, 2, 3],
+                feature_strides=[4, 8, 16, 32],
+                channels=128,
+                dropout_ratio=0.1,
+                num_classes=1,
+                norm_cfg=dict(type='BN', requires_grad=True),
+                align_corners=False,
+                decoder_params=dict(embed_dim=768),
+                loss_decode=dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),
     # model training and testing settings
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))
