@@ -1,5 +1,4 @@
 # model settings
-from mmseg.models.builder import BACKBONES, SEGMENTORS
 
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 
@@ -14,11 +13,14 @@ data_preprocessor = dict(
 model = dict(
     type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
-    pretrained='./mit_b4.pth',
+    pretrained='./segformer.b4.pth',
     backbone=dict(
-                type=BACKBONES.get('mit_b4_vpt'),
+                type='MixVisionTransformerVPT',
                 img_size=512,
-                prompt_cfg='deep',),
+                prompt_cfg='deep',
+                patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+            qkv_bias=True, depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0, drop_path_rate=0.1),
      decode_head=dict(
                 type='SegFormerHead',
                 in_channels=[64, 128, 320, 512],

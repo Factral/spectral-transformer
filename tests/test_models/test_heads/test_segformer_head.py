@@ -2,20 +2,20 @@
 import pytest
 import torch
 
-from mmseg.models.decode_heads import SegformerHead
+from mmseg.models.decode_heads import SegFormerHead
 
 
 def test_segformer_head():
     with pytest.raises(AssertionError):
         # `in_channels` must have same length as `in_index`
-        SegformerHead(
+        SegFormerHead(
             in_channels=(1, 2, 3), in_index=(0, 1), channels=5, num_classes=2)
 
     H, W = (64, 64)
     in_channels = (32, 64, 160, 256)
     shapes = [(H // 2**(i + 2), W // 2**(i + 2))
               for i in range(len(in_channels))]
-    model = SegformerHead(
+    model = SegFormerHead(
         in_channels=in_channels,
         in_index=[0, 1, 2, 3],
         channels=256,
