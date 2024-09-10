@@ -18,7 +18,7 @@ from timm.models.registry import register_model
 from timm.models.vision_transformer import _cfg
 from mmseg.models.builder import BACKBONES
 import math
-
+from mmengine.runner import load_checkpoint
 from functools import reduce
 from operator import mul
 
@@ -332,9 +332,26 @@ class MixVisionTransformerVPT(nn.Module):
                 m.bias.data.zero_()
                 
 
-    def init_weights(self, pretrained=None):
+
+    def init_weights(self, pretrained='./segformer.b4.pth'):
+        print("pesos", pretrained)
         if isinstance(pretrained, str):
-            load_checkpoint(self, pretrained, map_location='cpu', strict=False)
+            print("pesos cargados")
+            
+            # Load the checkpoint
+            checkpoint = torch.load(pretrained, map_location='cpu')
+            
+            # Create a new state dict with modified keys
+            new_state_dict = {}
+            for k, v in checkpoint['state_dict'].items():
+                if k.startswith('backbone.'):
+                    new_k = k.replace('backbone.', '', 1)
+                else:
+                    new_k = k
+                new_state_dict[new_k] = v
+            
+            # Load the modified state dict
+            self.load_state_dict(new_state_dict, strict=False)
 
     def reset_drop_path(self, drop_path_rate):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]

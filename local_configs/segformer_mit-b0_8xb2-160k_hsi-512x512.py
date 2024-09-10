@@ -9,7 +9,6 @@ data_preprocessor = dict(size=crop_size)
 
 model = dict(
     data_preprocessor=data_preprocessor,
-     
 
     decode_head=dict(num_classes=44, # 44 ' = 40 clean classes
                      #n_channels=[64, 128, 320, 512],
@@ -46,6 +45,6 @@ param_scheduler = [
         by_epoch=True,
     )
 ]
-train_dataloader = dict(batch_size=16, num_workers=8)
-val_dataloader = dict(batch_size=4, num_workers=8)
+train_dataloader = dict(batch_size=32, num_workers=12)
+val_dataloader = dict(batch_size=4, num_workers=12)
 test_dataloader = val_dataloader
