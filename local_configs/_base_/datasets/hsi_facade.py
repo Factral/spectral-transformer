@@ -9,7 +9,7 @@ train_pipeline = [
 
 test_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadSpectralImageFromNpyFile'),
+    #dict(type='LoadSpectralImageFromNpyFile'),
     dict(type='LoadAnnotations'),
     dict(type='PackSegSpectralInputs')
 ]
