@@ -1,6 +1,6 @@
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    #dict(type='LoadSpectralImageFromNpyFile'),
+    dict(type='LoadSpectralImageFromNpyFile'),
     dict(type='LoadAnnotations'),
     #dict(type='RandomFlip', prob=0.5),
     #dict(type='RandomRotate', prob=0.5, degree=20),
@@ -9,7 +9,7 @@ train_pipeline = [
 
 test_pipeline = [
     dict(type='LoadImageFromFile'),
-    #dict(type='LoadSpectralImageFromNpyFile'),
+    dict(type='LoadSpectralImageFromNpyFile'),
     dict(type='LoadAnnotations'),
     dict(type='PackSegSpectralInputs')
 ]

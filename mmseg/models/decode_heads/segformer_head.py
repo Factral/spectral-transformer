@@ -61,6 +61,27 @@ class SegFormerHead(BaseDecodeHead):
 
         self.linear_pred = nn.Conv2d(embedding_dim, self.num_classes, kernel_size=1)
 
+
+    def init_weights(self, pretrained='./segformer.b1.1024x1024.city.160k.pth'):
+        print("pesos", pretrained)
+        if isinstance(pretrained, str):
+            print("pesos cargados")
+            
+            # Load the checkpoint
+            checkpoint = torch.load(pretrained, map_location='cpu')
+            
+            # Create a new state dict with modified keys
+            new_state_dict = {}
+            for k, v in checkpoint['state_dict'].items():
+                if k.startswith('backbone.'):
+                    new_k = k.replace('backbone.', '', 1)
+                else:
+                    new_k = k
+                new_state_dict[new_k] = v
+            
+            # Load the modified state dict
+            self.load_state_dict(new_state_dict, strict=False)
+
     def forward(self, inputs):
         x = self._transform_inputs(inputs)  # len=4, 1/4,1/8,1/16,1/32
         c1, c2, c3, c4 = x

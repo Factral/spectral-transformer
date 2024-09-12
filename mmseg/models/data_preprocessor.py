@@ -107,7 +107,8 @@ class SegDataPreProcessor(BaseDataPreprocessor):
             Dict: Data in the same format as the model input.
         """
         data = self.cast_data(data)  # type: ignore
-        #print(data['inputs'])
+        spectral = None
+
         if isinstance(data, dict):
             if isinstance(data['inputs'], dict):
                 inputs = data['inputs']['rgb_inputs']
@@ -157,7 +158,10 @@ class SegDataPreProcessor(BaseDataPreprocessor):
             else:
                 inputs = torch.stack(inputs, dim=0)
 
-        #spectral = torch.stack(spectral,dim=0)
-        #inputs = torch.cat([inputs, spectral], dim=1).float()
+        if spectral is not None:
+            spectral = torch.stack(spectral,dim=0)
+            inputs = torch.cat([inputs, spectral], dim=1).float()
+
+        print("inputs shape: ", inputs.shape)
 
         return dict(inputs=inputs, data_samples=data_samples)
