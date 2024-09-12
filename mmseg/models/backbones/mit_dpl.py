@@ -599,7 +599,9 @@ class MixVisionTransformerVPT(nn.Module):
 
         x = self.norm2(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        
+        if multimodal:
+            x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         print(x.shape, "feature maps 2") # 128x64x64
 
@@ -609,7 +611,9 @@ class MixVisionTransformerVPT(nn.Module):
         # stage 3
         # -------
         x, H, W = self.patch_embed3(x)
-        x_spectral, _, _ = self.patch_embed_spectral3(x_spectral)
+
+        if multimodal:
+            x_spectral, _, _ = self.patch_embed_spectral3(x_spectral)
 
         for i, blk in enumerate(self.block3):
             if multimodal:
@@ -632,7 +636,9 @@ class MixVisionTransformerVPT(nn.Module):
 
         x = self.norm3(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+
+        if multimodal:
+            x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         print(x.shape, "feature maps 3") # 256x32x32
 
@@ -642,7 +648,9 @@ class MixVisionTransformerVPT(nn.Module):
         # stage 4
         # -------
         x, H, W = self.patch_embed4(x)
-        x_spectral, _ , _ = self.patch_embed_spectral4(x_spectral)
+
+        if multimodal:
+            x_spectral, _ , _ = self.patch_embed_spectral4(x_spectral)
 
         for i, blk in enumerate(self.block4):
             if multimodal:
