@@ -523,7 +523,7 @@ class MixVisionTransformerVPT(nn.Module):
         outs = []
 
         if multimodal:
-            spectral = x[:, 2:, :, :]
+            spectral = x[:, 3:, :, :]
             x = x[:, :3, :, :]
             x_spectral = self.patch_embed_spectral(spectral)
 
