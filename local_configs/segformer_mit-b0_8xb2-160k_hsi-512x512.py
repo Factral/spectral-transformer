@@ -14,8 +14,8 @@ model = dict(
                      #n_channels=[64, 128, 320, 512],
                      loss_decode=[
                     #dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                    dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=2.0)
-                    #dict(type='DiceLoss', loss_name='loss_dice', loss_weight=3.0, use_sigmoid=False),
+                    dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=3.0),
+                    #dict(type='DiceLoss', loss_name='loss_dice', loss_weight=1.0, use_sigmoid=False)
 
                     ])
                 )
@@ -34,11 +34,11 @@ optim_wrapper = dict(
         }))
 
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.01, by_epoch=True, begin=0, end=15),
+    dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=15),
     # Use a cosine learning rate at [100, 900) iterations
     dict(
         type='CosineAnnealingLR',
-        T_max=79500,
+        T_max=200,
         by_epoch=True,
         begin=15,
         end=200),
@@ -55,4 +55,4 @@ param_scheduler = [
 ]
 train_dataloader = dict(batch_size=12, num_workers=12)
 val_dataloader = dict(batch_size=1, num_workers=12)
-test_dataloader = val_dataloader
+test_dataloader = dict(batch_size=4, num_workers=12)

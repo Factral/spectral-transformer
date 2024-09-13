@@ -9,7 +9,7 @@ classes_exp = ('Whiteboard', 'Chessboard', 'Tripod', 'Vegetation Plant', 'Metal-
                'Wood/Timber Smooth Door', 'Tiles Ground', 'Pebble-Concrete Beam', 'Pebble-Concrete Ground',
                'Pebble-Concrete Wall', 'Plastic Pipe', 'Metal Profiled Sheet', 'Metal-Pole', 
                'Wood/timber Vent', 'Wood/timber Wall', 'Wood Frame', 'Metal Smooth Door',
-               'Plastic Vent', 'Concrete Window Sill', 'Metal Profiled Door')
+               'Plastic Vent', 'Concrete Window Sill', 'Metal Profiled Door', 'Wood/Timber Profiled Door')
 
 palette_exp = [[199, 197, 189], [240, 212, 173], [2, 195, 145], [0, 122, 16], [80, 84, 195],
                 [69, 174, 186], [212, 78, 78], [181, 42, 181], [139, 150, 228], [184, 117, 40],
@@ -19,7 +19,7 @@ palette_exp = [[199, 197, 189], [240, 212, 173], [2, 195, 145], [0, 122, 16], [8
                 [4, 108, 16], [13, 186, 180], [255, 128, 192], [34, 31, 153], [210, 184, 98],
                 [37, 78, 32], [212, 204, 228], [172, 228, 99], [33, 98, 194], 
                 [237, 128, 22], [128, 169, 150], [216, 182, 111], [188, 114, 203], [236, 233, 124],
-                [187, 5, 74], [113, 134, 124]]
+                [187, 5, 74], [113, 134, 124]. [201, 141,150]]
 
 
 
