@@ -8,6 +8,7 @@ from mmengine.model import BaseDataPreprocessor
 from mmseg.registry import MODELS
 from mmseg.utils import stack_batch
 
+import random
 
 @MODELS.register_module()
 class SegDataPreProcessor(BaseDataPreprocessor):
@@ -94,6 +95,24 @@ class SegDataPreProcessor(BaseDataPreprocessor):
 
         # Support different padding methods in testing
         self.test_cfg = test_cfg
+        self.modality_dropout_prob = 0.2
+
+
+    def modality_dropout(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Perform modality dropout.
+
+        Args:
+            inputs (torch.Tensor): The input tensor containing both RGB and spectral data.
+            spectral (torch.Tensor): The spectral part of the input.
+
+        Returns:
+            torch.Tensor: The input tensor after modality dropout.
+        """
+        if random.random() < self.modality_dropout_prob:
+            return inputs[:, :3, :]
+        else:
+            return inputs
+
 
     def forward(self, data: dict, training: bool = False) -> Dict[str, Any]:
         """Perform normalization、padding and bgr2rgb conversion based on
@@ -161,7 +180,8 @@ class SegDataPreProcessor(BaseDataPreprocessor):
         if spectral is not None:
             spectral = torch.stack(spectral,dim=0)
             inputs = torch.cat([inputs, spectral], dim=1).float()
+            if training:
+                inputs = self.modality_dropout(inputs)
 
-        print("inputs shape: ", inputs.shape)
 
         return dict(inputs=inputs, data_samples=data_samples)

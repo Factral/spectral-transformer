@@ -62,7 +62,7 @@ class SegFormerHead(BaseDecodeHead):
         self.linear_pred = nn.Conv2d(embedding_dim, self.num_classes, kernel_size=1)
 
 
-    def init_weights(self, pretrained='./segformer.b1.1024x1024.city.160k.pth'):
+    def init_weights(self, pretrained='./segformer.b3.512x512.ade.160k.pth'):
         print("pesos", pretrained)
         if isinstance(pretrained, str):
             print("pesos cargados")

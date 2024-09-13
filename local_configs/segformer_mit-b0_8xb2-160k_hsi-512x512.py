@@ -13,8 +13,8 @@ model = dict(
     decode_head=dict(num_classes=42, # 44 ' = 40 clean classes
                      #n_channels=[64, 128, 320, 512],
                      loss_decode=[
-                    dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                    #dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=2.0)
+                    #dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+                    dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=2.0)
                     #dict(type='DiceLoss', loss_name='loss_dice', loss_weight=3.0, use_sigmoid=False),
 
                     ])
@@ -34,17 +34,25 @@ optim_wrapper = dict(
         }))
 
 param_scheduler = [
+    dict(type='LinearLR', start_factor=0.01, by_epoch=True, begin=0, end=15),
+    # Use a cosine learning rate at [100, 900) iterations
     dict(
-        type='LinearLR', start_factor=1e-6, by_epoch=True, begin=0, end=15),
-    dict(
-        type='PolyLR',
-        eta_min=0.0,
-        power=1.0,
-        begin=15,
-        end=200,
+        type='CosineAnnealingLR',
+        T_max=79500,
         by_epoch=True,
-    )
+        begin=15,
+        end=200),
+    #dict(
+    #    type='LinearLR', start_factor=1e-6, by_epoch=True, begin=0, end=15),
+    #dict(
+    #    type='PolyLR',
+    #    eta_min=0.0,
+    #    power=1.0,
+    #    begin=15,
+    #    end=200,
+    #    by_epoch=True,
+    #)
 ]
-train_dataloader = dict(batch_size=1, num_workers=12)
+train_dataloader = dict(batch_size=12, num_workers=12)
 val_dataloader = dict(batch_size=1, num_workers=12)
 test_dataloader = val_dataloader

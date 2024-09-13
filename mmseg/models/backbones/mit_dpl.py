@@ -130,7 +130,6 @@ class Attention(nn.Module):
         if self.sr_ratio > 1:
             prompt_token = x[:, :10, :]
             x_ = x[:, 10:, :].permute(0, 2, 1).reshape(B, C, H, W)
-            print(x_.shape, "inside attention")
             x_ = self.sr(x_).reshape(B, C, -1).permute(0, 2, 1)
             x_ = torch.cat([prompt_token, x_], 1)
             x_ = self.norm(x_)
@@ -187,13 +186,8 @@ class Block(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, H, W):
-        print("start block module")
-        print(x.shape)
         x = x + self.drop_path(self.attn(self.norm1(x), H, W))
-        print(x.shape)
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
-        print(x.shape)
-        print("end block module")
         return x
 
 
@@ -466,7 +460,7 @@ class MixVisionTransformerVPT(nn.Module):
                 m.bias.data.zero_()
                 
 
-    def init_weights(self, pretrained='./segformer.b1.1024x1024.city.160k.pth'):
+    def init_weights(self, pretrained='./segformer.b3.512x512.ade.160k.pth'):
         print("pesos", pretrained)
         if isinstance(pretrained, str):
             print("pesos cargados")
@@ -561,9 +555,8 @@ class MixVisionTransformerVPT(nn.Module):
         x = self.norm1(x)
 
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-
-        print(x.shape, "feature maps 1") # 64x128x128
+        if multimodal:
+            x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         outs.append(x)
 
@@ -603,8 +596,6 @@ class MixVisionTransformerVPT(nn.Module):
         if multimodal:
             x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
-        print(x.shape, "feature maps 2") # 128x64x64
-
         outs.append(x)
 
         # -------
@@ -640,8 +631,6 @@ class MixVisionTransformerVPT(nn.Module):
         if multimodal:
             x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
-        print(x.shape, "feature maps 3") # 256x32x32
-
         outs.append(x)
 
         # -------
@@ -674,8 +663,6 @@ class MixVisionTransformerVPT(nn.Module):
         x = self.norm4(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
-        print(x.shape, "feature maps 4") # 512x16x16
-
         outs.append(x)
 
         return outs
@@ -683,13 +670,11 @@ class MixVisionTransformerVPT(nn.Module):
 
     def forward(self, x):
 
-        print("start forward")
         if x.shape[1] > 3:
             x = self.forward_features(x, multimodal=True)
         else:
             x = self.forward_features(x)
-        print("end bottleneck")
-        print("")
+
         # x = self.head(x)
 
         return x
