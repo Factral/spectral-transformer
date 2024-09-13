@@ -188,7 +188,7 @@ class PackSegSpectralInputs(BaseTransform):
                 spectral_img = np.expand_dims(spectral_img, -1)
             else:
                 spectral_img = spectral_img.transpose(2, 0, 1)
-                spectral_img = to_tensor(spectral_img).contiguous()
+                spectral_img = to_tensor(spectral_img.copy()).contiguous()
 
             packed_results['inputs']['spectral_inputs'] = spectral_img
 

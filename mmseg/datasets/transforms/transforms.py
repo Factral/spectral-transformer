@@ -410,6 +410,14 @@ class RandomRotate(BaseTransform):
                 border_value=self.pal_val,
                 center=self.center,
                 auto_bound=self.auto_bound)
+            
+            if 'spectral_img' in results:
+                results['spectral_img'] = mmcv.imrotate(
+                    results['spectral_img'],
+                    angle=degree,
+                    border_value=self.pal_val,
+                    center=self.center,
+                    auto_bound=self.auto_bound)
 
             # rotate segs
             for key in results.get('seg_fields', []):
@@ -1015,6 +1023,11 @@ class RandomFlip(MMCV_RandomFlip):
         # flip image
         results['img'] = mmcv.imflip(
             results['img'], direction=results['flip_direction'])
+        
+
+        if "spectral_img" in results:
+            results['spectral_img'] = mmcv.imflip(
+                results['spectral_img'], direction=results['flip_direction'])
 
         img_shape = results['img'].shape[:2]
 
