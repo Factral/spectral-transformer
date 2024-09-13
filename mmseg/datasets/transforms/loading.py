@@ -832,8 +832,12 @@ class LoadSpectralImageFromNpyFile(LoadImageFromFile):
         if self.to_float32:
             img = img.astype(np.float32)
 
+        #normalize
+        img = (img - np.min(img)) / (np.max(img) - np.min(img))
+
         results['spectral_img'] = img
         results['spectral_img_shape'] = img.shape[:2]
         results['spectral_ori_shape'] = img.shape[:2]
+
 
         return results
