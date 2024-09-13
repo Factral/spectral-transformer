@@ -372,7 +372,7 @@ class MixVisionTransformerVPT(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[0])
             for i in range(depth_spectral[0])])
-        self.norm1 = norm_layer(embed_dims[0])
+        self.norm1_spectral = norm_layer(embed_dims[0])
 
         cur += depth_spectral[0]
         self.block2_spectral = nn.ModuleList([Block(
@@ -380,7 +380,7 @@ class MixVisionTransformerVPT(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[1])
             for i in range(depth_spectral[1])])
-        self.norm2 = norm_layer(embed_dims[1])
+        self.norm2_spectral = norm_layer(embed_dims[1])
 
         cur += depth_spectral[1]
         self.block3_spectral = nn.ModuleList([Block(
@@ -388,7 +388,7 @@ class MixVisionTransformerVPT(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[2])
             for i in range(depth_spectral[2])])
-        self.norm3 = norm_layer(embed_dims[2])
+        self.norm3_spectral = norm_layer(embed_dims[2])
 
         cur += depth_spectral[2]
         self.block4_spectral = nn.ModuleList([Block(
@@ -396,7 +396,7 @@ class MixVisionTransformerVPT(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[3])
             for i in range(depth_spectral[3])])
-        self.norm4 = norm_layer(embed_dims[3])
+        self.norm4_spectral = norm_layer(embed_dims[3])
 
 
 
@@ -523,7 +523,7 @@ class MixVisionTransformerVPT(nn.Module):
         outs = []
 
         if multimodal:
-            spectral = x[:, 3:, :, :]
+            spectral = x[:, 2:, :, :]
             x = x[:, :3, :, :]
             x_spectral = self.patch_embed_spectral(spectral)
 
@@ -535,17 +535,22 @@ class MixVisionTransformerVPT(nn.Module):
         for i, blk in enumerate(self.block1):
 
             if multimodal:
-                x_spectral = torch.cat([ self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_1[i])).expand(B, -1, -1), x_spectral], dim=1)
                 
-                for blk_spectral in self.block1_spectral:
-                    x_spectral = blk_spectral(x_spectral, H + self.token_depth, W)
+                if  i+1 <= len(self.block1_spectral):
+                    x_spectral = torch.cat([ self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_1[i])).expand(B, -1, -1), x_spectral], dim=1)
+                
+                    x_spectral = self.block1_spectral[i](x_spectral, H + self.token_depth, W)
 
-                spectral_prompts = x_spectral[:, :self.num_tokens_1, :] # remove spectral tokens and save prompts
-                x = torch.cat([spectral_prompts, x], dim=1) # add spectral prompts to RGB image
 
-                x_spectral = x_spectral[:, self.num_tokens_1:, :] # remove prompts
+                    spectral_prompts = x_spectral[:, :self.num_tokens_1, :] # remove spectral tokens and save prompts
+                    x = torch.cat([spectral_prompts, x], dim=1) # add spectral prompts to RGB image
 
+                    x_spectral = x_spectral[:, self.num_tokens_1:, :] # remove prompts
+                else:
+                    x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_1[i])).expand(B, -1, -1), x],dim=1)
+                    
             else:
+
                 x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_1[i])).expand(B, -1, -1), x],dim=1)
 
             x = blk(x, H + self.token_depth, W)
@@ -553,9 +558,10 @@ class MixVisionTransformerVPT(nn.Module):
             x = x[:, self.num_tokens_1:, :] # remove prompts
 
         x = self.norm1(x)
-
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+
         if multimodal:
+            x_spectral = self.norm1_spectral(x_spectral)
             x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         outs.append(x)
@@ -571,18 +577,24 @@ class MixVisionTransformerVPT(nn.Module):
 
 
         for i, blk in enumerate(self.block2):
+
             if multimodal:
-                x_spectral = torch.cat([ self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_2[i])).expand(B, -1, -1), x_spectral], dim=1)
                 
-                for blk_spectral in self.block2_spectral:
-                    x_spectral = blk_spectral(x_spectral, H + self.token_depth, W)
+                if  i+1 <= len(self.block2_spectral):
+                    x_spectral = torch.cat([ self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_2[i])).expand(B, -1, -1), x_spectral], dim=1)
+                
+                    x_spectral = self.block2_spectral[i](x_spectral, H + self.token_depth, W)
 
-                spectral_prompts = x_spectral[:, :self.num_tokens_2, :] # remove spectral tokens and save prompts
-                x = torch.cat([spectral_prompts, x], dim=1) # add spectral prompts to RGB image
 
-                x_spectral = x_spectral[:, self.num_tokens_2:, :] # remove prompts
+                    spectral_prompts = x_spectral[:, :self.num_tokens_2, :] # remove spectral tokens and save prompts
+                    x = torch.cat([spectral_prompts, x], dim=1) # add spectral prompts to RGB image
 
+                    x_spectral = x_spectral[:, self.num_tokens_2:, :] # remove prompts
+                else:
+                    x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_2[i])).expand(B, -1, -1), x],dim=1)
+                    
             else:
+
                 x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_2[i])).expand(B, -1, -1), x],dim=1)
 
             x = blk(x, H + self.token_depth, W)
@@ -594,6 +606,7 @@ class MixVisionTransformerVPT(nn.Module):
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         
         if multimodal:
+            x_spectral = self.norm2_spectral(x_spectral)
             x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         outs.append(x)
@@ -607,18 +620,24 @@ class MixVisionTransformerVPT(nn.Module):
             x_spectral, _, _ = self.patch_embed_spectral3(x_spectral)
 
         for i, blk in enumerate(self.block3):
+
             if multimodal:
-                x_spectral = torch.cat([ self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_3[i])).expand(B, -1, -1), x_spectral], dim=1)
                 
-                for blk_spectral in self.block3_spectral:
-                    x_spectral = blk_spectral(x_spectral, H + self.token_depth, W)
+                if  i+1 <= len(self.block3_spectral):
+                    x_spectral = torch.cat([ self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_3[i])).expand(B, -1, -1), x_spectral], dim=1)
+                
+                    x_spectral = self.block3_spectral[i](x_spectral, H + self.token_depth, W)
 
-                spectral_prompts = x_spectral[:, :self.num_tokens_3, :] # remove spectral tokens and save prompts
-                x = torch.cat([spectral_prompts, x], dim=1) # add spectral prompts to RGB image
 
-                x_spectral = x_spectral[:, self.num_tokens_3:, :] # remove prompts
+                    spectral_prompts = x_spectral[:, :self.num_tokens_3, :] # remove spectral tokens and save prompts
+                    x = torch.cat([spectral_prompts, x], dim=1) # add spectral prompts to RGB image
 
+                    x_spectral = x_spectral[:, self.num_tokens_3:, :] # remove prompts
+                else:
+                    x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_3[i])).expand(B, -1, -1), x],dim=1)
+                    
             else:
+
                 x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_3[i])).expand(B, -1, -1), x],dim=1)
 
             x = blk(x, H + self.token_depth, W)
@@ -629,6 +648,7 @@ class MixVisionTransformerVPT(nn.Module):
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         if multimodal:
+            x_spectral = self.norm3_spectral(x_spectral)
             x_spectral = x_spectral.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         outs.append(x)
@@ -642,18 +662,23 @@ class MixVisionTransformerVPT(nn.Module):
             x_spectral, _ , _ = self.patch_embed_spectral4(x_spectral)
 
         for i, blk in enumerate(self.block4):
+
             if multimodal:
-                x_spectral = torch.cat([ self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_4[i])).expand(B, -1, -1), x_spectral], dim=1)
                 
-                for blk_spectral in self.block4_spectral:
-                    x_spectral = blk_spectral(x_spectral, H + self.token_depth, W)
+                if  i+1 <= len(self.block4_spectral):
+                    x_spectral = torch.cat([ self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_4[i])).expand(B, -1, -1), x_spectral], dim=1)
+                
+                    x_spectral = self.block4_spectral[i](x_spectral, H + self.token_depth, W)
 
-                spectral_prompts = x_spectral[:, :self.num_tokens_4, :] # remove spectral tokens and save prompts
-                x = torch.cat([spectral_prompts, x], dim=1) # add spectral prompts to RGB image
+                    spectral_prompts = x_spectral[:, :self.num_tokens_4, :] # remove spectral tokens and save prompts
+                    x = torch.cat([spectral_prompts, x], dim=1) # add spectral prompts to RGB image
 
-                x_spectral = x_spectral[:, self.num_tokens_4:, :] # remove prompts
-
+                    x_spectral = x_spectral[:, self.num_tokens_4:, :] # remove prompts
+                else:
+                    x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_4[i])).expand(B, -1, -1), x],dim=1)
+                    
             else:
+
                 x = torch.cat([self.prompt_dropout(self.prompt_proj(self.prompt_embeddings_4[i])).expand(B, -1, -1), x],dim=1)
 
             x = blk(x, H + self.token_depth, W)
@@ -673,7 +698,8 @@ class MixVisionTransformerVPT(nn.Module):
         if x.shape[1] > 3:
             x = self.forward_features(x, multimodal=True)
         else:
-            x = self.forward_features(x)
+            print("forward missing modality!")
+            x = self.forward_features(x, multimodal=False)
 
         # x = self.head(x)
 
@@ -684,9 +710,6 @@ class MixVisionTransformerVPT(nn.Module):
         for k, p in self.named_parameters():
             if "prompt" not in k and "decode_head" not in k and "spectral" not in k:
                 p.requires_grad = False
-
-
-
 
 
 @BACKBONES.register_module()
