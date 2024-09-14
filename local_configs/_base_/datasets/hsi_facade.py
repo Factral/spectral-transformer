@@ -1,15 +1,20 @@
+img_norm_cfg = dict(
+    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadSpectralImageFromNpyFile'),
     dict(type='LoadAnnotations'),
-    dict(type='RandomFlip', prob=0.5),
-    dict(type='RandomRotate', prob=0.5, degree=30),
+    dict(type='RandomFlip', prob=0.6, direction='horizontal'),
+    dict(type='RandomRotate', prob=0.7, degree=40),
+    dict(type='Normalize', **img_norm_cfg),
     dict(type='PackSegSpectralInputs')
 ]
 
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     #dict(type='LoadSpectralImageFromNpyFile'),
+    dict(type='Normalize', **img_norm_cfg),
     dict(type='LoadAnnotations'),
     dict(type='PackSegSpectralInputs')
 ]

@@ -34,25 +34,25 @@ optim_wrapper = dict(
         }))
 
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=15),
+    #dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=15),
     # Use a cosine learning rate at [100, 900) iterations
-    dict(
-        type='CosineAnnealingLR',
-        T_max=200,
-        by_epoch=True,
-        begin=15,
-        end=200),
     #dict(
-    #    type='LinearLR', start_factor=1e-6, by_epoch=True, begin=0, end=15),
-    #dict(
-    #    type='PolyLR',
-    #    eta_min=0.0,
-    #    power=1.0,
-    #    begin=15,
-    #    end=200,
+    #    type='CosineAnnealingLR',
+    #    T_max=200,
     #    by_epoch=True,
-    #)
+    #    begin=15,
+    #    end=200),
+    dict(
+        type='LinearLR', start_factor=1e-6, by_epoch=True, begin=0, end=15),
+    dict(
+        type='PolyLR',
+        eta_min=0.0,
+        power=1.0,
+        begin=15,
+        end=200,
+        by_epoch=True,
+    )
 ]
-train_dataloader = dict(batch_size=1, num_workers=12)
+train_dataloader = dict(batch_size=20, num_workers=12)
 val_dataloader = dict(batch_size=1, num_workers=12)
-test_dataloader = dict(batch_size=1, num_workers=12)
+test_dataloader = dict(batch_size=4, num_workers=12)
