@@ -26,6 +26,7 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
 from mmseg.registry import MODELS
+import re
 
 
 class DWConv(nn.Module):
@@ -315,13 +316,13 @@ class MixVisionTransformerVPT(nn.Module):
                                               embed_dim=embed_dims[3])
 
         # patch embed spectral
-        self.patch_embed_spectral = BlockwisePatchEmbedding(32, embed_dims[0], 8, 8, 8)
+        self.block_wisepatch_spectral = BlockwisePatchEmbedding(32, embed_dims[0], 8, 8, 8)
 
-        self.patch_embed_spectral2 = OverlapPatchEmbed(img_size=img_size // 4, patch_size=3, stride=2, in_chans=embed_dims[0],
+        self.patch_embed2_spectral = OverlapPatchEmbed(img_size=img_size // 4, patch_size=3, stride=2, in_chans=embed_dims[0],
                                               embed_dim=embed_dims[1])
-        self.patch_embed_spectral3 = OverlapPatchEmbed(img_size=img_size // 8, patch_size=3, stride=2, in_chans=embed_dims[1],
+        self.patch_embed3_spectral = OverlapPatchEmbed(img_size=img_size // 8, patch_size=3, stride=2, in_chans=embed_dims[1],
                                               embed_dim=embed_dims[2])
-        self.patch_embed_spectral4 = OverlapPatchEmbed(img_size=img_size // 16, patch_size=3, stride=2, in_chans=embed_dims[2],
+        self.patch_embed4_spectral = OverlapPatchEmbed(img_size=img_size // 16, patch_size=3, stride=2, in_chans=embed_dims[2],
                                               embed_dim=embed_dims[3])
 
 
@@ -460,6 +461,14 @@ class MixVisionTransformerVPT(nn.Module):
                 m.bias.data.zero_()
                 
 
+    def freeze(self):
+        for k, p in self.named_parameters():
+            if "spectral" in k:
+                print(k)
+            if "prompt" not in k and "decode_head" not in k and "spectral" not in k:
+                p.requires_grad = False
+
+
     def init_weights(self, pretrained='./segformer.b3.512x512.ade.160k.pth'):
         print("pesos", pretrained)
         if isinstance(pretrained, str):
@@ -475,8 +484,19 @@ class MixVisionTransformerVPT(nn.Module):
                     new_k = k.replace('backbone.', '', 1)
                 else:
                     new_k = k
+
                 new_state_dict[new_k] = v
-            
+
+                if 'block' in new_k:
+                    new_k_spectral = re.sub(r'block(\d+)', r'block\1_spectral', new_k)
+                if 'norm' in new_k:
+                    new_k_spectral = re.sub(r'norm(\d+)', r'norm\1_spectral', new_k)
+                if 'patch_embed' in new_k:
+                    new_k_spectral = re.sub(r'patch_embed(\d*)', r'patch_embed\1_spectral', new_k)
+
+                new_state_dict[new_k_spectral] = v
+
+
             # Load the modified state dict
             self.load_state_dict(new_state_dict, strict=False)
 
@@ -525,7 +545,7 @@ class MixVisionTransformerVPT(nn.Module):
         if multimodal:
             spectral = x[:, 3:, :, :]
             x = x[:, :3, :, :]
-            x_spectral = self.patch_embed_spectral(spectral)
+            x_spectral = self.block_wisepatch_spectral(spectral)
 
         # -------
         # stage 1
@@ -705,11 +725,6 @@ class MixVisionTransformerVPT(nn.Module):
 
         return x
 
-
-    def freeze(self):
-        for k, p in self.named_parameters():
-            if "prompt" not in k and "decode_head" not in k and "spectral" not in k:
-                p.requires_grad = False
 
 
 @BACKBONES.register_module()
