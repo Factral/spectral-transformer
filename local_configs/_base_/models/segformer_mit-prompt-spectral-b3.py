@@ -14,12 +14,12 @@ model = dict(
     type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
     backbone=dict(
-                type='MixVisionTransformerVPT',
+                type='MixVisionTransformerMultimodalVPT',
                 img_size=512,
                 prompt_cfg='deep',
                 patch_size=4, embed_dims=[64, 128, 320, 512], 
                 num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
-                qkv_bias=True, depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
+                qkv_bias=True, depths=[3, 4, 18, 3], sr_ratios=[8, 4, 2, 1],
                 drop_rate=0.0, drop_path_rate=0.1),
      decode_head=dict(
                 type='SegFormerHead',

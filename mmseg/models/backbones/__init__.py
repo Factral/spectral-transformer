@@ -24,13 +24,14 @@ from .twins import PCPVT, SVT
 from .unet import UNet
 from .vit import VisionTransformer
 from .vpd import VPD
-from .mit_dpl import MixVisionTransformerVPT
+from .mit_prompt_multimodal import MixVisionTransformerMultimodalVPT
+from .mit_prompt import MixVisionTransformerVPT
 
 __all__ = [
     'ResNet', 'ResNetV1c', 'ResNetV1d', 'ResNeXt', 'HRNet', 'FastSCNN',
     'ResNeSt', 'MobileNetV2', 'UNet', 'CGNet', 'MobileNetV3',
-    'VisionTransformer', 'SwinTransformer', 'MixVisionTransformer',
+    'VisionTransformer', 'SwinTransformer', 
     'BiSeNetV1', 'BiSeNetV2', 'ICNet', 'TIMMBackbone', 'ERFNet', 'PCPVT',
     'SVT', 'STDCNet', 'STDCContextPathNet', 'BEiT', 'MAE', 'PIDNet', 'MSCAN',
-    'DDRNet', 'VPD', 'MixVisionTransformerVPT'
+    'DDRNet', 'VPD','MixVisionTransformer', 'MixVisionTransformerVPT', 'MixVisionTransformerMultimodalVPT'
 ]
