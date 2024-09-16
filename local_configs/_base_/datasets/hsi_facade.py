@@ -4,7 +4,7 @@ train_pipeline = [
     dict(type='LoadSpectralImageFromNpyFile'),
     dict(type='LoadAnnotations'),
     dict(type='RandomFlip', prob=0.5, direction='horizontal'),
-    dict(type='RandomRotate', prob=0.5, degree=35),
+    dict(type='RandomRotate', prob=0.5, degree=30),
     dict(type='PackSegSpectralInputs')
 ]
 

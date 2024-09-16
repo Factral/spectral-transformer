@@ -316,7 +316,7 @@ class MixVisionTransformerVPT(nn.Module):
                                               embed_dim=embed_dims[3])
 
         # patch embed spectral
-        self.block_wisepatch_spectral = BlockwisePatchEmbedding(32, embed_dims[0], 8, 8, 8)
+        self.block_wisepatch_spectral = BlockwisePatchEmbedding(64, embed_dims[0], 16, 8, 8)
 
         self.patch_embed2_spectral = OverlapPatchEmbed(img_size=img_size // 4, patch_size=3, stride=2, in_chans=embed_dims[0],
                                               embed_dim=embed_dims[1])
@@ -489,16 +489,18 @@ class MixVisionTransformerVPT(nn.Module):
 
                 if 'block' in new_k:
                     new_k_spectral = re.sub(r'block(\d+)', r'block\1_spectral', new_k)
+                    new_state_dict[new_k_spectral] = v
                 if 'norm' in new_k:
                     new_k_spectral = re.sub(r'norm(\d+)', r'norm\1_spectral', new_k)
+                    new_state_dict[new_k_spectral] = v
                 if 'patch_embed' in new_k:
                     new_k_spectral = re.sub(r'patch_embed(\d*)', r'patch_embed\1_spectral', new_k)
-
-                new_state_dict[new_k_spectral] = v
+                    new_state_dict[new_k_spectral] = v
 
 
             # Load the modified state dict
             self.load_state_dict(new_state_dict, strict=False)
+            print("todo good")
 
 
     def reset_drop_path(self, drop_path_rate):
@@ -593,7 +595,7 @@ class MixVisionTransformerVPT(nn.Module):
         x, H, W = self.patch_embed2(x)
 
         if multimodal:
-            x_spectral, _, _ = self.patch_embed_spectral2(x_spectral)
+            x_spectral, _, _ = self.patch_embed2_spectral(x_spectral)
 
 
         for i, blk in enumerate(self.block2):
@@ -637,7 +639,7 @@ class MixVisionTransformerVPT(nn.Module):
         x, H, W = self.patch_embed3(x)
 
         if multimodal:
-            x_spectral, _, _ = self.patch_embed_spectral3(x_spectral)
+            x_spectral, _, _ = self.patch_embed3_spectral(x_spectral)
 
         for i, blk in enumerate(self.block3):
 
@@ -679,7 +681,7 @@ class MixVisionTransformerVPT(nn.Module):
         x, H, W = self.patch_embed4(x)
 
         if multimodal:
-            x_spectral, _ , _ = self.patch_embed_spectral4(x_spectral)
+            x_spectral, _ , _ = self.patch_embed4_spectral(x_spectral)
 
         for i, blk in enumerate(self.block4):
 

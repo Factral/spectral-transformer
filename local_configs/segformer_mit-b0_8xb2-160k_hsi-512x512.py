@@ -13,9 +13,9 @@ model = dict(
     decode_head=dict(num_classes=42, # 44 ' = 40 clean classes
                      #n_channels=[64, 128, 320, 512],
                      loss_decode=[
-                    #dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                    dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=3.0),
-                    #dict(type='DiceLoss', loss_name='loss_dice', loss_weight=1.0, use_sigmoid=False)
+                    dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+                    #dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=3.0),
+                    dict(type='DiceLoss', loss_name='loss_dice', loss_weight=1.0, use_sigmoid=False)
 
                     ])
                 )
@@ -28,19 +28,19 @@ optim_wrapper = dict(
         type='AdamW', lr=0.0003, betas=(0.9, 0.999), weight_decay=0.01),
     paramwise_cfg=dict(
         custom_keys={
-            'pos_block': dict(decay_mult=0.),
-            'norm': dict(decay_mult=0.),
+            'pos_block': dict(decay_mult=0.01),
+            'norm': dict(decay_mult=0.01),
             'head': dict(lr_mult=10.)
         }))
 
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.0001, by_epoch=True, begin=0, end=15),
+    dict(type='LinearLR', start_factor=0.0001, by_epoch=True, begin=0, end=20),
     # Use a cosine learning rate at [100, 900) iterations
     dict(
         type='CosineAnnealingLR',
         T_max=200,
         by_epoch=True,
-        begin=15,
+        begin=20,
         end=200),
     #dict(
     #    type='LinearLR', start_factor=1e-6, by_epoch=True, begin=0, end=15),
@@ -53,6 +53,6 @@ param_scheduler = [
     #    by_epoch=True,
     #)
 ]
-train_dataloader = dict(batch_size=20, num_workers=12)
+train_dataloader = dict(batch_size=16, num_workers=12)
 val_dataloader = dict(batch_size=1, num_workers=12)
-test_dataloader = dict(batch_size=4, num_workers=12)
+test_dataloader = dict(batch_size=1, num_workers=12)
