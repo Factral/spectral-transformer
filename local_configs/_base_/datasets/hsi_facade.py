@@ -1,10 +1,10 @@
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadSpectralImageFromNpyFile'),
+    #dict(type='LoadSpectralImageFromNpyFile'),
     dict(type='LoadAnnotations'),
     dict(type='RandomFlip', prob=0.5, direction='horizontal'),
-    dict(type='RandomRotate', prob=0.5, degree=30),
+    dict(type='RandomRotate', prob=0.5, degree=35),
     dict(type='PackSegSpectralInputs')
 ]
 
@@ -42,9 +42,9 @@ val_dataloader = dict(
         type='HSIFacade',
         data_root=DATA_ROOT,
         data_prefix=dict(
-            img_path='validation/rgb',
-            seg_map_path='validation/labels',
-            spectral_path='validation/reflectance_cubes'),
+            img_path='test/rgb',
+            seg_map_path='test/labels',
+            spectral_path='test/reflectance_cubes'),
         pipeline=test_pipeline))
 
 

@@ -20,7 +20,7 @@ model = dict(
                      loss_decode=[
                     dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
                     #dict(type='FocalLoss', loss_name='loss_focal', loss_weight=3.0, alpha=0.25, gamma=3.0),
-                    dict(type='DiceLoss', loss_name='loss_dice', loss_weight=1.0, use_sigmoid=False)
+                    #dict(type='DiceLoss', loss_name='loss_dice', loss_weight=1.0, use_sigmoid=False)
 
                     ])
                 )
@@ -58,6 +58,6 @@ param_scheduler = [
     #    by_epoch=True,
     #)
 ]
-train_dataloader = dict(batch_size=16, num_workers=12)
+train_dataloader = dict(batch_size=14, num_workers=12)
 val_dataloader = dict(batch_size=1, num_workers=12)
 test_dataloader = dict(batch_size=1, num_workers=12)

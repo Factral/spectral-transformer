@@ -59,7 +59,7 @@ def merge_args_to_config(cfg, args):
             init_kwargs=dict(
                 project='transformer-material-segmentation',
                 name=f'{exp_name}',
-                group=args.model_name)
+                group=args.model_name+"v2")
             )
             )
         
